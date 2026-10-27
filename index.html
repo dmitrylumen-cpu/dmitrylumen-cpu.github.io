@@ -276,11 +276,19 @@ details > summary:hover {
 [data-theme="dark"] .stat.clickable:hover {
     box-shadow: 0 6px 16px rgba(0,0,0,0.4);
 }
+
+/* === ЭКРАН ВХОДА === */
+.role-btn { transition: border-color .15s, background .15s; }
+.role-btn:hover { border-color: var(--blue) !important; }
+
+/* Скрытие финансов в Парке для Техника */
+#tab-fleet table.tech-mode th:last-child,
+#tab-fleet table.tech-mode td:last-child { display: none !important; }
 </style>
     <!-- ====== АВТООБНОВЛЕНИЕ И PWA ====== -->
     <script>
         // ВАЖНО: Эта цифра должна совпадать с той, что в файле version.txt на GitHub!
-        var APP_VERSION = "6.1.1"; 
+        var APP_VERSION = "6.5.1"; // <------ВЕРСИЯ не забудь сменить при разворачивании ёбанарот)
         
         setInterval(function() {
             fetch('version.txt?t=' + Date.now())
@@ -310,6 +318,24 @@ details > summary:hover {
     <!-- ==================================== -->
 </head>
 <body>
+    <!-- ЭКРАН ВХОДА -->
+<div class="modal-bg" id="roleModal" style="z-index:2000">
+    <div class="modal" style="max-width:400px;text-align:center">
+      <h2 style="margin-bottom:8px">🔐 Вход в ARENDA</h2>
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px">Выберите роль и введите PIN</p>
+      <div style="display:flex;gap:10px;margin-bottom:15px">
+        <button type="button" class="role-btn" data-role="admin" style="flex:1;padding:20px;border:2px solid var(--border);border-radius:12px;background:var(--card);cursor:pointer;font-size:15px;font-weight:600;color:var(--text)">👑 Админ</button>
+        <button type="button" class="role-btn" data-role="tech" style="flex:1;padding:20px;border:2px solid var(--border);border-radius:12px;background:var(--card);cursor:pointer;font-size:15px;font-weight:600;color:var(--text)">🔧 Техник</button>
+      </div>
+      <div class="field" style="margin-bottom:15px">
+        <input type="password" id="rolePinInput" placeholder="PIN-код" maxlength="8" inputmode="numeric" pattern="[0-9]*" style="width:100%;text-align:center;font-size:20px;letter-spacing:8px;padding:12px">
+      </div>
+      <p id="roleMsg" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:10px"></p>
+      <button type="button" id="roleLoginBtn" style="width:100%;padding:12px">Войти</button>
+      <p style="font-size:11px;color:var(--text-dim);margin-top:12px">При первом входе PIN задаётся автоматически. Запомните его!</p>
+    </div>
+  </div>
+
 <div id="setupScreen" style="display:none;position:fixed;inset:0;background:var(--bg);align-items:center;justify-content:center;padding:20px;z-index:1000">
 <div style="background:var(--card);border-radius:12px;padding:32px;max-width:500px;width:100%">
 <h2 style="text-align:center;margin-bottom:8px">⚙ Настройки</h2>
@@ -4657,6 +4683,8 @@ if (typeof define === 'function' && define.amd) {
     function renderFleet(){
     var tb=document.getElementById("fleetList");
     var totalValue=0,totalUnits=0,totalRepair=0,totalPower=0;
+    var fleetTable = document.querySelector("#tab-fleet table");
+    if (fleetTable) fleetTable.classList.toggle("tech-mode", currentRole === "tech");
     var byModel={};
     instances.forEach(function(inst){
         if(!byModel[inst.modelId])byModel[inst.modelId]={name:getModel(inst.modelId)?getModel(inst.modelId).name:"[Удалено]",price:getModel(inst.modelId)?getModel(inst.modelId).marketPrice||0:0,inPoints:0,onBase:0,reserved:0,inRepair:0,lost:0,total:0};
@@ -7037,6 +7065,7 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
         }, 500);
     }
     document.getElementById("appScreen").style.display="block";
+    initAuth();
     document.getElementById("postpayCheckTab").checked=postpayment;
     document.getElementById("setupTokenTab").value=ghToken;
     document.getElementById("setupGistIdTab").value=ghGistId;
@@ -8119,7 +8148,7 @@ var tipEl=null, tipTimer=null, tipTarget=null;
     
 
     // ============================================================
-// ==== QR LABELS MODULE v6.5 (Этап A) — вставить ПЕРЕД init(); ====
+// ==== QR LABELS MODULE v6.5 (Этап A) ====
 // ============================================================
 
 var _qrLibLoaded = false, _qrLibLoading = false, _qrLibCallbacks = [];
@@ -8803,7 +8832,11 @@ window.showShareQRCode = function() {
         alert("Сначала подключитесь к GitHub (введите Gist ID), чтобы сгенерировать QR.");
         return;
     }
-
+// ЗАЩИТА: Проверяем, открыт ли файл локально
+if (window.location.protocol === 'file:') {
+        alert("⚠️ Вы открываете файл локально (file://).\n\nТелефон не сможет открыть этот адрес. Пожалуйста, зайдите в программу по ссылке GitHub Pages (https://...) и сгенерируйте QR там.");
+        return;
+    }
     var container = document.getElementById('shareQrContainer');
     container.innerHTML = ""; // Очищаем старое
 
@@ -9171,6 +9204,178 @@ window.saveLabelDesign = function() {
     if(typeof showScannerToast === 'function') showScannerToast("✅ Дизайн сохранен!", true);
 };
 
+// ============================================================
+// ==== МОДУЛЬ РОЛЕЙ И АВТОРИЗАЦИИ (v6.5.1) ====
+// ============================================================
+var ROLE_KEY = "rent_role";
+var PIN_ADMIN_KEY = "rent_pin_admin";
+var PIN_TECH_KEY = "rent_pin_tech";
+var currentRole = null;
+var pendingRole = null;
+
+function simpleHash(s) {
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return h.toString(16);
+}
+function getStoredPin(role) {
+    return localStorage.getItem(role === "admin" ? PIN_ADMIN_KEY : PIN_TECH_KEY);
+}
+function setStoredPin(role, pin) {
+    localStorage.setItem(role === "admin" ? PIN_ADMIN_KEY : PIN_TECH_KEY, simpleHash(pin));
+}
+
+window.initAuth = function() {
+    var saved = localStorage.getItem(ROLE_KEY);
+    if (saved === "admin" || saved === "tech") {
+        currentRole = saved;
+        applyRoleUI();
+    } else {
+        document.getElementById("roleModal").classList.add("active");
+    }
+};
+
+function selectRole(role) {
+    pendingRole = role;
+    document.querySelectorAll(".role-btn").forEach(function(b){
+        var active = (b.dataset.role === role);
+        b.style.borderColor = active ? "var(--blue)" : "var(--border)";
+        b.style.background = active ? "var(--soon-bg)" : "var(--card)";
+    });
+    document.getElementById("roleMsg").textContent = "";
+    document.getElementById("rolePinInput").value = "";
+    document.getElementById("rolePinInput").focus();
+}
+
+function tryLogin() {
+    if (!pendingRole) { document.getElementById("roleMsg").textContent = "Выберите роль"; return; }
+    var pin = document.getElementById("rolePinInput").value.trim();
+    if (!/^\d{4,8}$/.test(pin)) { document.getElementById("roleMsg").textContent = "PIN — 4–8 цифр"; return; }
+    var stored = getStoredPin(pendingRole);
+    if (!stored) {
+        setStoredPin(pendingRole, pin);
+        loginAs(pendingRole);
+        return;
+    }
+    if (simpleHash(pin) !== stored) {
+        document.getElementById("roleMsg").textContent = "Неверный PIN";
+        return;
+    }
+    loginAs(pendingRole);
+}
+
+function loginAs(role) {
+    currentRole = role;
+    localStorage.setItem(ROLE_KEY, role);
+    document.getElementById("roleModal").classList.remove("active");
+    applyRoleUI();
+    if (typeof showScannerToast === "function") {
+        showScannerToast("👋 Добро пожаловать, " + (role === "admin" ? "Админ" : "Техник"), true);
+    }
+}
+
+window.switchRole = async function() {
+    if (!confirm("Сменить роль?\n\nВсе сохранённые данные останутся. Несохранённые правки в открытых формах будут потеряны.\n\nПродолжить?")) return;
+    
+    // 1. Принудительно сохраняем локально
+    try { saveToStorage(); } catch(e) {}
+    
+    // 2. Если есть синхронизация — ждём до 3 секунд
+    if (typeof isConf === "function" && isConf()) {
+        if (typeof showScannerToast === "function") showScannerToast("💾 Сохраняем перед сменой роли...", true);
+        var waited = 0;
+        while (syncing && waited < 3000) {
+            await new Promise(function(r){ setTimeout(r, 100); });
+            waited += 100;
+        }
+        // Если ещё не сохранилось — пробуем ещё раз
+        if (!syncing && typeof ghSave === "function") {
+            try { await ghSave(); } catch(e) { console.warn("Не удалось синхронизировать:", e); }
+        }
+    }
+    
+    // 3. Сбрасываем роль и перезагружаем
+    localStorage.removeItem(ROLE_KEY);
+    currentRole = null;
+    pendingRole = null;
+    location.reload();
+};
+
+function applyRoleUI() {
+    var isTech = (currentRole === "tech");
+    var isAdmin = (currentRole === "admin");
+
+    // Тема
+    if (isTech) {
+        applyTheme("dark");
+        var tt = document.getElementById("themeToggle");
+        if (tt) tt.style.display = "none";
+    } else if (isAdmin) {
+        var tt2 = document.getElementById("themeToggle");
+        if (tt2) tt2.style.display = "";
+    }
+
+    // Вкладки
+    document.querySelectorAll(".nav-tab").forEach(function(t){
+        var tab = t.dataset.tab;
+        var hide = isTech && (tab === "tab-documents" || tab === "tab-clients" || tab === "tab-settings");
+        t.style.display = hide ? "none" : "";
+    });
+
+    // Шапка: постоплата
+    var pol = document.getElementById("policyBtn");
+    if (pol) pol.style.display = isTech ? "none" : "";
+
+    // Шапка: бейдж "Сканер готов"
+    document.querySelectorAll(".user-info .sync-status").forEach(function(b){
+        if (b.textContent.indexOf("Сканер") >= 0) b.style.display = isTech ? "none" : "";
+    });
+
+    // Кнопка "Сменить роль" — добавляем один раз
+    if (!document.getElementById("switchRoleBtn")) {
+        var sr = document.createElement("button");
+        sr.id = "switchRoleBtn";
+        sr.type = "button";
+        sr.className = "ghost small";
+        sr.textContent = "🚪";
+        sr.title = "Сменить роль";
+        sr.onclick = switchRole;
+        var ui = document.querySelector(".user-info");
+        if (ui) ui.appendChild(sr);
+    }
+
+    // Точки: скрыть админские блоки
+    var addFormHead = document.getElementById("addFormHead");
+    if (addFormHead) addFormHead.parentElement.style.display = isTech ? "none" : "";
+    document.querySelectorAll("#tab-points .toolbar").forEach(function(t){ t.style.display = isTech ? "none" : ""; });
+    var sc = document.getElementById("statsCards");
+    if (sc) sc.parentElement.style.display = isTech ? "none" : "";
+    var td = document.getElementById("topDebtors");
+    if (td) td.parentElement.style.display = isTech ? "none" : "";
+    document.querySelectorAll("#tab-points > .stats").forEach(function(s){ s.style.display = isTech ? "none" : ""; });
+
+    // Парк: скрыть рыночную стоимость
+    document.querySelectorAll("#tab-fleet .stat").forEach(function(s){
+        var hide = isTech && s.textContent.indexOf("Рыночная стоимость") >= 0;
+        s.style.display = hide ? "none" : "";
+    });
+
+    // Перерисовать точки
+    if (typeof renderPoints === "function") renderPoints();
+}
+
+// Обработчики кнопок входа
+document.querySelectorAll(".role-btn").forEach(function(b){
+    b.addEventListener("click", function(){ selectRole(this.dataset.role); });
+});
+document.getElementById("roleLoginBtn").addEventListener("click", tryLogin);
+document.getElementById("rolePinInput").addEventListener("keydown", function(e){
+    if (e.key === "Enter") tryLogin();
+});
+
+// ============================================================
+// ==== /МОДУЛЬ РОЛЕЙ ====
+// ============================================================
     init();
     })();
     </script>
