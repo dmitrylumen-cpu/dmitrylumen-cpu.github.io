@@ -318,21 +318,20 @@ details > summary:hover {
     <!-- ==================================== -->
 </head>
 <body>
-    <!-- ЭКРАН ВХОДА -->
-<div class="modal-bg" id="roleModal" style="z-index:2000">
-    <div class="modal" style="max-width:400px;text-align:center">
-      <h2 style="margin-bottom:8px">🔐 Вход в ARENDA</h2>
-      <p style="color:var(--text-muted);font-size:13px;margin-bottom:20px">Выберите роль и введите PIN</p>
-      <div style="display:flex;gap:10px;margin-bottom:15px">
-        <button type="button" class="role-btn" data-role="admin" style="flex:1;padding:20px;border:2px solid var(--border);border-radius:12px;background:var(--card);cursor:pointer;font-size:15px;font-weight:600;color:var(--text)">👑 Админ</button>
-        <button type="button" class="role-btn" data-role="tech" style="flex:1;padding:20px;border:2px solid var(--border);border-radius:12px;background:var(--card);cursor:pointer;font-size:15px;font-weight:600;color:var(--text)">🔧 Техник</button>
-      </div>
+
+    <!-- МОДАЛКА ВВОДА PIN АДМИНА -->
+<div class="modal-bg" id="adminPinModal" style="z-index:2000">
+    <div class="modal" style="max-width:360px;text-align:center">
+      <h2 style="margin-bottom:8px">👑 Вход в Админку</h2>
+      <p id="adminPinSubtitle" style="color:var(--text-muted);font-size:13px;margin-bottom:15px">Введите PIN-код</p>
       <div class="field" style="margin-bottom:15px">
-        <input type="password" id="rolePinInput" placeholder="PIN-код" maxlength="8" inputmode="numeric" pattern="[0-9]*" style="width:100%;text-align:center;font-size:20px;letter-spacing:8px;padding:12px">
+        <input type="password" id="adminPinInput" placeholder="PIN" maxlength="8" inputmode="numeric" pattern="[0-9]*" style="width:100%;text-align:center;font-size:20px;letter-spacing:8px;padding:12px">
       </div>
-      <p id="roleMsg" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:10px"></p>
-      <button type="button" id="roleLoginBtn" style="width:100%;padding:12px">Войти</button>
-      <p style="font-size:11px;color:var(--text-dim);margin-top:12px">При первом входе PIN задаётся автоматически. Запомните его!</p>
+      <p id="adminPinMsg" style="color:var(--red);font-size:13px;min-height:18px;margin-bottom:10px"></p>
+      <div style="display:flex;gap:10px">
+        <button type="button" class="ghost" id="adminPinCancel" style="flex:1">Отмена</button>
+        <button type="button" id="adminPinOk" style="flex:1">Войти</button>
+      </div>
     </div>
   </div>
 
@@ -9205,13 +9204,12 @@ window.saveLabelDesign = function() {
 };
 
 // ============================================================
-// ==== МОДУЛЬ РОЛЕЙ И АВТОРИЗАЦИИ (v6.5.1) ====
+// ==== МОДУЛЬ РОЛЕЙ (v6.5.1, финал) ====
 // ============================================================
 var ROLE_KEY = "rent_role";
 var PIN_ADMIN_KEY = "rent_pin_admin";
 var PIN_TECH_KEY = "rent_pin_tech";
-var currentRole = null;
-var pendingRole = null;
+var currentRole = "tech";
 
 function simpleHash(s) {
     var h = 5381;
@@ -9225,92 +9223,22 @@ function setStoredPin(role, pin) {
     localStorage.setItem(role === "admin" ? PIN_ADMIN_KEY : PIN_TECH_KEY, simpleHash(pin));
 }
 
-window.initAuth = function() {
-    var saved = localStorage.getItem(ROLE_KEY);
-    if (saved === "admin" || saved === "tech") {
-        currentRole = saved;
-        applyRoleUI();
-    } else {
-        document.getElementById("roleModal").classList.add("active");
-    }
-};
-
-function selectRole(role) {
-    pendingRole = role;
-    document.querySelectorAll(".role-btn").forEach(function(b){
-        var active = (b.dataset.role === role);
-        b.style.borderColor = active ? "var(--blue)" : "var(--border)";
-        b.style.background = active ? "var(--soon-bg)" : "var(--card)";
-    });
-    document.getElementById("roleMsg").textContent = "";
-    document.getElementById("rolePinInput").value = "";
-    document.getElementById("rolePinInput").focus();
-}
-
-function tryLogin() {
-    if (!pendingRole) { document.getElementById("roleMsg").textContent = "Выберите роль"; return; }
-    var pin = document.getElementById("rolePinInput").value.trim();
-    if (!/^\d{4,8}$/.test(pin)) { document.getElementById("roleMsg").textContent = "PIN — 4–8 цифр"; return; }
-    var stored = getStoredPin(pendingRole);
-    if (!stored) {
-        setStoredPin(pendingRole, pin);
-        loginAs(pendingRole);
-        return;
-    }
-    if (simpleHash(pin) !== stored) {
-        document.getElementById("roleMsg").textContent = "Неверный PIN";
-        return;
-    }
-    loginAs(pendingRole);
-}
-
-function loginAs(role) {
-    currentRole = role;
-    localStorage.setItem(ROLE_KEY, role);
-    document.getElementById("roleModal").classList.remove("active");
-    applyRoleUI();
-    if (typeof showScannerToast === "function") {
-        showScannerToast("👋 Добро пожаловать, " + (role === "admin" ? "Админ" : "Техник"), true);
-    }
-}
-
-window.switchRole = async function() {
-    if (!confirm("Сменить роль?\n\nВсе сохранённые данные останутся. Несохранённые правки в открытых формах будут потеряны.\n\nПродолжить?")) return;
-    
-    // 1. Принудительно сохраняем локально
-    try { saveToStorage(); } catch(e) {}
-    
-    // 2. Если есть синхронизация — ждём до 3 секунд
-    if (typeof isConf === "function" && isConf()) {
-        if (typeof showScannerToast === "function") showScannerToast("💾 Сохраняем перед сменой роли...", true);
-        var waited = 0;
-        while (syncing && waited < 3000) {
-            await new Promise(function(r){ setTimeout(r, 100); });
-            waited += 100;
-        }
-        // Если ещё не сохранилось — пробуем ещё раз
-        if (!syncing && typeof ghSave === "function") {
-            try { await ghSave(); } catch(e) { console.warn("Не удалось синхронизировать:", e); }
-        }
-    }
-    
-    // 3. Сбрасываем роль и перезагружаем
-    localStorage.removeItem(ROLE_KEY);
-    currentRole = null;
-    pendingRole = null;
-    location.reload();
-};
-
 function applyRoleUI() {
     var isTech = (currentRole === "tech");
     var isAdmin = (currentRole === "admin");
+
+    // Меняем заголовок
+    var h1 = document.querySelector(".topbar h1");
+    if (h1) {
+        h1.innerHTML = isTech ? '📦 Я СПЕЦИАЛИСТ!' : '📦 ERP: Аренда и Парк';
+    }
 
     // Тема
     if (isTech) {
         applyTheme("dark");
         var tt = document.getElementById("themeToggle");
         if (tt) tt.style.display = "none";
-    } else if (isAdmin) {
+    } else {
         var tt2 = document.getElementById("themeToggle");
         if (tt2) tt2.style.display = "";
     }
@@ -9322,26 +9250,29 @@ function applyRoleUI() {
         t.style.display = hide ? "none" : "";
     });
 
-    // Шапка: постоплата
+    // Шапка: постоплата и сканер
     var pol = document.getElementById("policyBtn");
     if (pol) pol.style.display = isTech ? "none" : "";
-
-    // Шапка: бейдж "Сканер готов"
     document.querySelectorAll(".user-info .sync-status").forEach(function(b){
         if (b.textContent.indexOf("Сканер") >= 0) b.style.display = isTech ? "none" : "";
     });
 
-    // Кнопка "Сменить роль" — добавляем один раз
-    if (!document.getElementById("switchRoleBtn")) {
-        var sr = document.createElement("button");
-        sr.id = "switchRoleBtn";
-        sr.type = "button";
-        sr.className = "ghost small";
-        sr.textContent = "🚪";
-        sr.title = "Сменить роль";
-        sr.onclick = switchRole;
-        var ui = document.querySelector(".user-info");
-        if (ui) ui.appendChild(sr);
+    // Кнопка "Сменить роль" — только Админ
+    var existing = document.getElementById("switchRoleBtn");
+    if (isAdmin) {
+        if (!existing) {
+            var sr = document.createElement("button");
+            sr.id = "switchRoleBtn";
+            sr.type = "button";
+            sr.className = "ghost small";
+            sr.textContent = "🚪";
+            sr.title = "Выйти из режима Админа";
+            sr.onclick = switchRole;
+            var ui = document.querySelector(".user-info");
+            if (ui) ui.appendChild(sr);
+        }
+    } else if (existing) {
+        existing.remove();
     }
 
     // Точки: скрыть админские блоки
@@ -9359,20 +9290,135 @@ function applyRoleUI() {
         var hide = isTech && s.textContent.indexOf("Рыночная стоимость") >= 0;
         s.style.display = hide ? "none" : "";
     });
+    var fleetTable = document.querySelector("#tab-fleet table");
+    if (fleetTable) fleetTable.classList.toggle("tech-mode", isTech);
 
-    // Перерисовать точки
+    // Блок безопасности в настройках (только Админ)
+    var secBlock = document.getElementById("securityBlock");
+    if (secBlock) secBlock.style.display = isAdmin ? "block" : "none";
+
     if (typeof renderPoints === "function") renderPoints();
 }
 
-// Обработчики кнопок входа
-document.querySelectorAll(".role-btn").forEach(function(b){
-    b.addEventListener("click", function(){ selectRole(this.dataset.role); });
+// Секретный вход: 10 кликов по заголовку за 2 секунды
+(function initSecretAdminEntry() {
+    var clicks = 0;
+    var clickTimer = null;
+    var h1 = document.querySelector(".topbar h1");
+    if (!h1) return;
+    h1.addEventListener("click", function() {
+        if (currentRole === "admin") return;
+        clicks++;
+        if (clickTimer) clearTimeout(clickTimer);
+        clickTimer = setTimeout(function() { clicks = 0; }, 2000);
+        if (clicks >= 10) {
+            clicks = 0;
+            clearTimeout(clickTimer);
+            openAdminLogin();
+        }
+    });
+})();
+
+function openAdminLogin() {
+    var modal = document.getElementById("adminPinModal");
+    if (!modal) return;
+    var hasPin = !!getStoredPin("admin");
+    document.getElementById("adminPinSubtitle").textContent = hasPin 
+        ? "Введите PIN-код Админа" 
+        : "PIN Админа ещё не задан. Придумайте его (4–8 цифр) и запомните!";
+    document.getElementById("adminPinMsg").textContent = "";
+    document.getElementById("adminPinInput").value = "";
+    modal.classList.add("active");
+    setTimeout(function(){ document.getElementById("adminPinInput").focus(); }, 100);
+}
+
+document.getElementById("adminPinCancel").addEventListener("click", function() {
+    document.getElementById("adminPinModal").classList.remove("active");
 });
-document.getElementById("roleLoginBtn").addEventListener("click", tryLogin);
-document.getElementById("rolePinInput").addEventListener("keydown", function(e){
-    if (e.key === "Enter") tryLogin();
+document.getElementById("adminPinOk").addEventListener("click", function() {
+    var pin = document.getElementById("adminPinInput").value.trim();
+    if (!/^\d{4,8}$/.test(pin)) {
+        document.getElementById("adminPinMsg").textContent = "PIN — 4–8 цифр";
+        return;
+    }
+    var stored = getStoredPin("admin");
+    if (!stored) {
+        setStoredPin("admin", pin);
+        loginAs("admin");
+        return;
+    }
+    if (simpleHash(pin) !== stored) {
+        document.getElementById("adminPinMsg").textContent = "Неверный PIN";
+        return;
+    }
+    loginAs("admin");
+});
+document.getElementById("adminPinInput").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") document.getElementById("adminPinOk").click();
 });
 
+function loginAs(role) {
+    currentRole = role;
+    localStorage.setItem(ROLE_KEY, role);
+    document.getElementById("adminPinModal").classList.remove("active");
+    applyRoleUI();
+    if (typeof showScannerToast === "function") {
+        showScannerToast("👋 Добро пожаловать, " + (role === "admin" ? "Админ" : "Я СПЕЦИАЛИСТ!"), true);
+    }
+}
+
+function switchRole() {
+    if (!confirm("Выйти из режима Админа и вернуться в режим «Я СПЕЦИАЛИСТ!»?")) return;
+    currentRole = "tech";
+    localStorage.setItem(ROLE_KEY, "tech");
+    applyRoleUI();
+    if (typeof showScannerToast === "function") showScannerToast("👋 Режим: Я СПЕЦИАЛИСТ!", true);
+}
+
+window.initAuth = function() {
+    var saved = localStorage.getItem(ROLE_KEY);
+    if (saved === "admin") {
+        currentRole = "admin";
+    } else {
+        currentRole = "tech";
+        localStorage.setItem(ROLE_KEY, "tech");
+    }
+    applyRoleUI();
+};
+
+// === БЛОК БЕЗОПАСНОСТИ В НАСТРОЙКАХ ===
+(function addSecurityBlock() {
+    var settingsTab = document.getElementById("tab-settings");
+    if (!settingsTab) return;
+    var block = document.createElement("div");
+    block.id = "securityBlock";
+    block.className = "card";
+    block.style.display = "none";
+    block.innerHTML = 
+        '<h3 style="margin-bottom:14px">🔐 Безопасность</h3>' +
+        '<div class="field" style="margin-bottom:10px"><label>Сменить PIN Админа</label><input type="password" id="newAdminPin" placeholder="Новый PIN (4–8 цифр)" style="width:100%;max-width:300px"></div>' +
+        '<button type="button" class="backup" style="margin-bottom:20px" onclick="changeAdminPin()">Сохранить PIN Админа</button>' +
+        '<div class="field" style="margin-bottom:10px"><label>PIN для Техника («Я СПЕЦИАЛИСТ!»)</label><input type="password" id="newTechPin" placeholder="Новый PIN (4–8 цифр)" style="width:100%;max-width:300px"></div>' +
+        '<button type="button" class="backup" onclick="changeTechPin()">Сохранить PIN Техника</button>' +
+        '<p style="font-size:11px;color:var(--text-muted);margin-top:10px">PIN Техника пока не используется для входа, но пригодится в будущих версиях.</p>';
+    settingsTab.appendChild(block);
+})();
+
+window.changeAdminPin = function() {
+    var pin = document.getElementById("newAdminPin").value.trim();
+    if (!/^\d{4,8}$/.test(pin)) { alert("PIN — 4–8 цифр"); return; }
+    setStoredPin("admin", pin);
+    document.getElementById("newAdminPin").value = "";
+    alert("PIN Админа изменён!");
+};
+
+window.changeTechPin = function() {
+    var pin = document.getElementById("newTechPin").value.trim();
+    if (!/^\d{4,8}$/.test(pin)) { alert("PIN — 4–8 цифр"); return; }
+    setStoredPin("tech", pin);
+    document.getElementById("newTechPin").value = "";
+    alert("PIN Техника изменён!");
+};
 // ============================================================
 // ==== /МОДУЛЬ РОЛЕЙ ====
 // ============================================================
