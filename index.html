@@ -584,7 +584,7 @@ details > summary:hover {
 </div>
 
 <!-- НАСТРОЙКИ -->
-<div id="tab-settings" class="tab-content">
+ <div id="tab-settings" class="tab-content">
     <div class="card">
         <h3 style="margin-bottom:14px">🏢 Локации (склады и ремонты)</h3>
         <div id="locationsList"></div>
@@ -628,6 +628,9 @@ details > summary:hover {
             <input type="checkbox" id="postpayCheckTab" style="width:20px;height:20px">
             <span><b>Постоплата</b><br><small style="color:var(--text-muted)">Каждый месяц оплачивается в следующем</small></span>
         </label>
+        <div style="margin-bottom: 15px;">
+            <button type="button" class="backup" style="background:var(--purple); width:100%;" onclick="showShareQRCode()">📱 Поделиться / Подключить устройство</button>
+        </div>
         <input type="text" id="setupGistIdTab" placeholder="Gist ID" style="width:100%;max-width:400px;margin-bottom:10px">
         <input type="password" id="setupTokenTab" placeholder="Personal Access Token" style="width:100%;max-width:400px;margin-bottom:10px">
         <button id="setupConnectBtnTab" type="button">Подключиться к GitHub</button>
@@ -7018,6 +7021,21 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
 
     
     function init(){
+            // Проверяем, не пришли ли мы по QR-коду
+    var urlParams = new URLSearchParams(window.location.search);
+    var gistParam = urlParams.get('gist');
+    if (gistParam) {
+        localStorage.setItem(GIST_KEY, gistParam); // Сохраняем ID
+        ghGistId = gistParam;
+        // Очищаем URL от параметра
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Переключаемся на вкладку настроек
+        setTimeout(function() {
+            switchTab("tab-settings");
+            alert("✅ Gist ID успешно получен!\n\nТеперь введите ваш Personal Access Token и нажмите «Подключиться к GitHub».");
+        }, 500);
+    }
     document.getElementById("appScreen").style.display="block";
     document.getElementById("postpayCheckTab").checked=postpayment;
     document.getElementById("setupTokenTab").value=ghToken;
@@ -8779,6 +8797,36 @@ window.openScannerHub = function() {
     document.getElementById('scannerHubModal').classList.add('active');
 };
 
+// === МОДУЛЬ ПОДЕЛИТЬСЯ (QR) ===
+window.showShareQRCode = function() {
+    if (!ghGistId) {
+        alert("Сначала подключитесь к GitHub (введите Gist ID), чтобы сгенерировать QR.");
+        return;
+    }
+
+    var container = document.getElementById('shareQrContainer');
+    container.innerHTML = ""; // Очищаем старое
+
+    // Формируем ссылку с параметром gist
+    var url = new URL(window.location.href);
+    url.searchParams.set('gist', ghGistId);
+    var shareUrl = url.toString();
+
+    // Генерируем QR
+    ensureQRCodeLib(function() {
+        var qr = qrcode(0, 'M');
+        qr.addData(shareUrl);
+        qr.make();
+        var qrSvg = qr.createSvgTag({ cellSize: 5, margin: 0, scalable: true });
+        qrSvg = qrSvg.replace(/<svg([^>]*)>/, function(match, attrs){
+            attrs = attrs.replace(/\s(width|height)="[^"]*"/g, '');
+            return '<svg' + attrs + ' width="200" height="200">';
+        });
+        container.innerHTML = qrSvg;
+    });
+
+    document.getElementById('shareQrModal').classList.add('active');
+};
 // ============================================================
 // ==== CAMERA SCANNER MODULE (v6.6) ====
 // ============================================================
@@ -9248,6 +9296,27 @@ window.saveLabelDesign = function() {
 </div> 
 <!-- Конец МОДАЛКА СЦЕНАРИЕВ СКАНЕРА -->
 
+<!-- МОДАЛКА ПОДЕЛИТЬСЯ -->
+<div class="modal-bg" id="shareQrModal">
+    <div class="modal" style="max-width:400px; text-align:center;">
+        <h3>📱 Подключение устройства</h3>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:15px">Отсканируйте этот QR-код камерой телефона или планшета.</p>
+        
+        <div style="background:#fff; padding:15px; border-radius:12px; display:inline-block; margin-bottom:15px;">
+            <div id="shareQrContainer"></div>
+        </div>
+        
+        <div style="background:var(--warn-bg); padding:10px; border-radius:8px; font-size:12px; text-align:left; line-height:1.4; margin-bottom:15px;">
+            <b>⚠️ Инструкция:</b><br>
+            1. Наведите камеру.<br>
+            2. Приложение откроется и подтянет ID базы.<br>
+            3. Вам останется только ввести Токен.<br>
+            4. Чтобы добавить на экран, нажмите в браузере «На экран Домой».
+        </div>
+
+        <button type="button" class="ghost" style="width:100%;" onclick="document.getElementById('shareQrModal').classList.remove('active')">Закрыть</button>
+    </div>
+</div>
 
     </body>
     
