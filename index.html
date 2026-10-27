@@ -262,7 +262,52 @@ details > summary:hover {
     color: var(--blue) !important;
 }
 /* ==================================== */
+/* === КЛИКАБЕЛЬНЫЕ КАРТОЧКИ === */
+.stat.clickable {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    border: 1px solid transparent;
+}
+.stat.clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    border-color: var(--red);
+}
+[data-theme="dark"] .stat.clickable:hover {
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+}
 </style>
+    <!-- ====== АВТООБНОВЛЕНИЕ И PWA ====== -->
+    <script>
+        // ВАЖНО: Эта цифра должна совпадать с той, что в файле version.txt на GitHub!
+        var APP_VERSION = "6.1.1"; 
+        
+        setInterval(function() {
+            fetch('version.txt?t=' + Date.now())
+                .then(function(r){ return r.text(); })
+                .then(function(serverVersion) {
+                    var v = serverVersion.trim();
+                    if (v && v !== APP_VERSION) {
+                        var banner = document.getElementById('updateBanner');
+                        if (!banner) {
+                            banner = document.createElement('div');
+                            banner.id = 'updateBanner';
+                            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#ff9800;color:#fff;padding:15px;text-align:center;font-weight:bold;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-size:16px;cursor:pointer;';
+                            banner.innerHTML = '🔄 Доступна новая версия (v' + v + ')! Нажмите, чтобы обновиться';
+                            banner.onclick = function() { 
+                                window.location.href = window.location.pathname + '?v=' + Date.now(); 
+                            };
+                            document.body.appendChild(banner);
+                        }
+                    }
+                })
+                .catch(function(){}); // Игнорируем ошибки, если нет интернета
+        }, 60000); // Проверять каждую минуту
+    </script>
+
+    <!-- Манифест для установки как приложение (PWA) -->
+    <link rel="manifest" href="data:application/manifest+json,{%22name%22:%22ARENDA%20-%20Учет%20аренды%22,%22short_name%22:%22ARENDA%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22%231565c0%22,%22theme_color%22:%22%231565c0%22,%22icons%22:[{%22src%22:%22https://cdn-icons-png.flaticon.com/512/2777/2777142.png%22,%22sizes%22:%22512x512%22,%22type%22:%22image/png%22}]}">
+    <!-- ==================================== -->
 </head>
 <body>
 <div id="setupScreen" style="display:none;position:fixed;inset:0;background:var(--bg);align-items:center;justify-content:center;padding:20px;z-index:1000">
@@ -302,9 +347,20 @@ details > summary:hover {
 <!-- ТОЧКИ -->
 <div id="tab-points" class="tab-content active">
     <div class="stats">
+        <!-- Кнопка-Хаб Сканера (Главный экран) -->
+<div class="card clickable" onclick="openScannerHub()" style="display:flex; align-items:center; justify-content:center; gap:15px; padding:20px; background:linear-gradient(135deg, #1565c0, #7b1fa2); color:#fff; cursor:pointer; transition:transform 0.2s ease, box-shadow 0.2s ease; box-shadow:var(--shadow); margin-bottom:20px;">
+    <div style="font-size:32px;">📷</div>
+    <div style="text-align:left;">
+        <div style="font-size:18px; font-weight:700; margin-bottom:4px;">Умный Сканер</div>
+        <div style="font-size:13px; opacity:0.8;">Наведи камеру или используй USB-сканер</div>
+    </div>
+</div>
     <div class="stat blue"><div class="label">Точек</div><div class="value" id="statCount">0</div></div>
     <div class="stat"><div class="label">Аренда/мес</div><div class="value" id="statMonthly">0 ₽</div></div>
-    <div class="stat red"><div class="label">⚠️ Не хватает на точках</div><div class="value" id="statMissingEq">0</div></div>
+    <div class="stat red clickable" onclick="showGlobalMissingEq()" title="Нажмите, чтобы посмотреть детали">
+    <div class="label">⚠️ Не хватает на точках</div>
+    <div class="value" id="statMissingEq">0</div>
+</div>
     <div class="stat red"><div class="label">Долг</div><div class="value" id="statDebt">0 ₽</div></div>
     <div class="stat green"><div class="label">Оплачено</div><div class="value" id="statPaid">0 ₽</div></div>
     </div>
@@ -472,6 +528,14 @@ details > summary:hover {
         <div class="stat orange"><div class="label">В ремонте</div><div class="value" id="fleetInRepair">0</div></div>
         <div class="stat" style="color:var(--purple)"><div class="label">⚡ Общая мощность</div><div class="value" id="fleetTotalPower">0 Вт</div></div>
     </div>
+    <!-- Кнопка-Хаб Сканера КНОПКА В ПАРК--> 
+<div class="card clickable" onclick="openScannerHub()" style="display:flex; align-items:center; justify-content:center; gap:15px; padding:20px; background:linear-gradient(135deg, #1565c0, #7b1fa2); color:#fff; cursor:pointer; transition:transform 0.2s ease, box-shadow 0.2s ease; box-shadow:var(--shadow); margin-bottom:20px;">
+    <div style="font-size:32px;">📷</div>
+    <div style="text-align:left;">
+        <div style="font-size:18px; font-weight:700; margin-bottom:4px;">Умный Сканер</div>
+        <div style="font-size:13px; opacity:0.8;">Наведи камеру или используй USB-сканер</div>
+    </div>
+</div>
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px">
             <h3>📊 Сводка по моделям</h3>
@@ -962,6 +1026,8 @@ details > summary:hover {
 </div></div>
 
 <script>
+
+    
     //---------------------------------------------------------------------
 //
 // QR Code Generator for JavaScript
@@ -3263,7 +3329,7 @@ if (typeof define === 'function' && define.amd) {
     </script>
     <!-- КОНЕЦ БИБЛИОТЕКИ QR -->
     
-    
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
 <script>
     (function(){
@@ -3399,17 +3465,25 @@ if (typeof define === 'function' && define.amd) {
     clients: parsed.clients||[],
     landlords: parsed.landlords||[],
     templates: parsed.templates||[],
-    dmxTooltips: parsed.dmxTooltips||{} 
+    dmxTooltips: parsed.dmxTooltips||{},
+    labelDesign: parsed.labelDesign || null,
+    catTree: parsed.catTree || null,
+    cardOrder: parsed.cardOrder || null,
+    policy: parsed.policy || null
     };
     }
     async function ghSave(){
     var files={};
     var payload={
-        app:"rent-erp", version:5, 
+        app:"rent-erp", version:APP_VERSION, 
         models:models, instances:instances, data:data, 
         locations:locations, audits:audits, clients:clients, 
         landlords:landlords, templates:templates,
-        dmxTooltips:dmxTooltips // <--- ВОТ НАША НОВАЯ СТРОЧКА
+        dmxTooltips:dmxTooltips, 
+        labelDesign:labelDesign,
+        catTree:CAT_TREE,
+        cardOrder:cardOrder,
+        policy:postpayment?"postpay":"prepay"
     };
     files[FILE_NAME]={content:JSON.stringify(payload,null,2)};
     var r=await fetch(API+ghGistId,{method:"PATCH",headers:Object.assign({"Content-Type":"application/json"},ghH()),body:JSON.stringify({files:files})});
@@ -3557,15 +3631,21 @@ if (typeof define === 'function' && define.amd) {
     if(isEnded(item)){st="Завершена";cl="ended";}
     var dt=c.debt>0.01?fmt(c.debt):(c.debt<-0.01?"−"+fmt(Math.abs(c.debt)):"—");
     var dc=c.debt>0.01?"var(--red-dark)":(c.debt<-0.01?"var(--purple-dark)":"var(--green)");
-    var plannedCount = (item.plannedList || item.equipmentList || []).length;
     var actualCount = (item.equipmentList || []).length;
-    var eqTxt = (plannedCount !== actualCount) ? `План: ${plannedCount} шт. / Факт: ${actualCount} шт.` : actualCount + " шт.";
+    // Считаем идеальную комплектность по моделям
+    var isPerfect = true;
+    var planCounts = {}, actCounts = {};
+    (item.plannedList || []).forEach(function(id){ var i = getInstance(id); if(i) planCounts[i.modelId] = (planCounts[i.modelId]||0)+1; });
+    (item.equipmentList || []).forEach(function(id){ var i = getInstance(id); if(i) actCounts[i.modelId] = (actCounts[i.modelId]||0)+1; });
+    for(var mid in planCounts){ if(planCounts[mid] > (actCounts[mid]||0)) { isPerfect = false; break; } }
+
+    var eqTxt = !isPerfect ? "⚠ Есть нехватка" : actualCount + " шт.";
     var tr=document.createElement("tr");
     tr.dataset.idx=String(i);
     if(window.matchMedia&&window.matchMedia("(hover:hover) and (pointer:fine)").matches)tr.draggable=true;
     tr.innerHTML=
     '<td data-label="Точка"><strong>'+esc(item.name)+'</strong>'+(item.clientId && clients.find(function(x){return x.id===item.clientId;}) ? '<br><span style="font-size:11px;color:var(--text-muted)">👤 '+esc(clients.find(function(x){return x.id===item.clientId;}).name)+'</span>' : '')+'</td>'
-        +'<td data-label="Оборудование"><span class="eq-cell" onclick="showPointEquipmentStatus('+i+')" title="Нажмите для подробностей" style="cursor:pointer; color:'+(plannedCount !== actualCount ? 'var(--red)' : 'inherit')+';font-weight:'+(plannedCount !== actualCount ? '600' : 'normal')+'">'+(plannedCount !== actualCount ? '⚠ ' : '')+eqTxt+'</span></td>'
+          +'<td data-label="Оборудование"><span class="eq-cell" onclick="showPointEquipmentStatus('+i+')" title="Нажмите для подробностей" style="cursor:pointer; color:'+(!isPerfect ? 'var(--red)' : 'inherit')+';font-weight:'+(!isPerfect ? '600' : 'normal')+'">'+(!isPerfect ? '⚠ ' : '')+eqTxt+'</span></td>'
     +'<td data-label="Старт">'+esc(formatRuDateShort(item.startDate))+'</td>'
     +'<td data-label="Конец">'+(item.endDate?esc(formatRuDateShort(item.endDate)):"—")+'</td>'
     +'<td data-label="Мес.">'+c.months+'</td>'
@@ -3592,19 +3672,22 @@ if (typeof define === 'function' && define.amd) {
     document.getElementById("statMonthly").textContent=fmt(tm);
         
     // === СЧЕТЧИК НЕ ХВАТАЮЩЕГО ОБОРУДОВАНИЯ ===
-    var totalMissingEq = 0;
+        // === УМНЫЙ СЧЕТЧИК НЕ ХВАТАЮЩЕГО ОБОРУДОВАНИЯ (ПО МОДЕЛЯМ) ===
+        var totalMissingEq = 0;
     data.forEach(function(point) {
         var planned = point.plannedList || point.equipmentList || [];
         var actual = point.equipmentList || [];
-        var missing = planned.filter(function(id) { return actual.indexOf(id) < 0; });
-        totalMissingEq += missing.length;
-    });
 
-    var missingEl = document.getElementById("statMissingEq");
-    if (missingEl) {
-        missingEl.textContent = totalMissingEq;
-        missingEl.style.color = totalMissingEq > 0 ? "var(--red)" : "var(--green)";
-    }
+        var planCounts = {}, actualCounts = {};
+        planned.forEach(function(id) { var i = getInstance(id); if (i) planCounts[i.modelId] = (planCounts[i.modelId] || 0) + 1; });
+        actual.forEach(function(id) { var i = getInstance(id); if (i) actualCounts[i.modelId] = (actualCounts[i.modelId] || 0) + 1; });
+
+        for (var mId in planCounts) {
+            if (planCounts[mId] > (actualCounts[mId] || 0)) {
+                totalMissingEq += (planCounts[mId] - (actualCounts[mId] || 0));
+            }
+        }
+    });
     // === /СЧЕТЧИК НЕ ХВАТАЮЩЕГО ОБОРУДОВАНИЯ ===
 
     document.getElementById("statPaid").textContent=fmt(tp);
@@ -3615,6 +3698,64 @@ if (typeof define === 'function' && define.amd) {
     renderTopDebtors();
     normalizeTooltips();
     }
+
+    window.showGlobalMissingEq = function() {
+    var totalMissing = 0;
+    var htmlContent = '<div style="display:flex;flex-direction:column;gap:10px;">';
+
+    data.forEach(function(point) {
+        var planned = point.plannedList || point.equipmentList || [];
+        var actual = point.equipmentList || [];
+
+        // Считаем, сколько каких МОДЕЛЕЙ должно быть и сколько есть
+        var planCounts = {};
+        planned.forEach(function(id) {
+            var inst = getInstance(id);
+            if (inst) planCounts[inst.modelId] = (planCounts[inst.modelId] || 0) + 1;
+        });
+
+        var actualCounts = {};
+        actual.forEach(function(id) {
+            var inst = getInstance(id);
+            if (inst) actualCounts[inst.modelId] = (actualCounts[inst.modelId] || 0) + 1;
+        });
+
+        var pointMissing = [];
+        // Ищем, каких моделей не хватает
+        for (var mId in planCounts) {
+            var planQty = planCounts[mId];
+            var actualQty = actualCounts[mId] || 0;
+            if (planQty > actualQty) {
+                var m = getModel(mId);
+                pointMissing.push({ modelName: m ? m.name : "Удаленная модель", missingQty: planQty - actualQty, modelId: mId });
+            }
+        }
+
+        if (pointMissing.length > 0) {
+            htmlContent += '<div style="background:var(--th-bg);padding:10px;border-radius:8px;border:1px solid var(--border-light);">';
+            htmlContent += '<div style="font-weight:bold;color:var(--blue);margin-bottom:5px;">📍 ' + esc(point.name) + '</div>';
+
+            pointMissing.forEach(function(item) {
+                totalMissing += item.missingQty;
+                htmlContent += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-left:10px;margin-bottom:3px;border-bottom:1px dashed var(--border-light);padding-bottom:2px;">' +
+                               '<span>• <b>' + esc(item.modelName) + '</b></span>' +
+                               '<span style="color:var(--red);font-weight:bold;">не хватает ' + item.missingQty + ' шт.</span>' +
+                               '</div>';
+            });
+            htmlContent += '</div>';
+        }
+    });
+
+    if (totalMissing === 0) {
+        alert("🎉 Везде полная комплектность! Все модели на своих местах.");
+        return;
+    }
+
+    htmlContent += '</div>';
+    document.getElementById("missingDetailsTitle").textContent = "Где не хватает оборудования (всего " + totalMissing + " шт.)";
+    document.getElementById("missingDetailsContent").innerHTML = htmlContent;
+    document.getElementById("missingDetailsModal").classList.add("active");
+};
 
     function renderStatsCards(){
     var el=document.getElementById("statsCards");if(!el)return;
@@ -4316,11 +4457,10 @@ if (typeof define === 'function' && define.amd) {
         openReturnModal(idx);
     });
 
-        function renderPlacement() {
+    function renderPlacement() {
         var el = document.getElementById("placementList");
         if (!el) return;
 
-        // Сохраняем состояние открытых папок
         document.querySelectorAll("#placementList details[data-key]").forEach(function(det) {
             openPlacementDetails[det.dataset.key] = det.open;
         });
@@ -4351,7 +4491,7 @@ if (typeof define === 'function' && define.amd) {
 
         var html = "";
         
-        // Сначала выводим Точки (с проверкой плана)
+        // Выводим Точки
         data.forEach(function(point, pIdx) {
             var pKey = "point_" + pIdx;
             var pOpen = openPlacementDetails[pKey] ? " open" : "";
@@ -4359,15 +4499,20 @@ if (typeof define === 'function' && define.amd) {
             var planned = point.plannedList || point.equipmentList || [];
             var actual = point.equipmentList || [];
             
-            var missing = planned.filter(function(id) { return actual.indexOf(id) < 0; });
-            var extra = actual.filter(function(id) { return planned.indexOf(id) < 0; });
+            // Считаем по моделям для бейджика
+            var pCounts = {}, aCounts = {};
+            planned.forEach(function(id) { var i = getInstance(id); if (i) pCounts[i.modelId] = (pCounts[i.modelId] || 0) + 1; });
+            actual.forEach(function(id) { var i = getInstance(id); if (i) aCounts[i.modelId] = (aCounts[i.modelId] || 0) + 1; });
             
+            var missQty = 0, extQty = 0;
+            for(var mid in pCounts) { if(pCounts[mid] > (aCounts[mid]||0)) missQty += (pCounts[mid] - (aCounts[mid]||0)); }
+            for(var mid in aCounts) { if(aCounts[mid] > (pCounts[mid]||0)) extQty += (aCounts[mid] - (pCounts[mid]||0)); }
+
             var statusBadge = "";
-            if (missing.length > 0) statusBadge = '<span class="badge debt" style="font-size:10px;">Не хватает: ' + missing.length + '</span>';
-            else if (extra.length > 0) statusBadge = '<span class="badge warn" style="font-size:10px;">Лишние: ' + extra.length + '</span>';
+            if (missQty > 0) statusBadge = '<span class="badge debt" style="font-size:10px;">Не хватает: ' + missQty + '</span>';
+            else if (extQty > 0) statusBadge = '<span class="badge warn" style="font-size:10px;">Лишние: ' + extQty + '</span>';
             else statusBadge = '<span class="badge ok" style="font-size:10px;">Комплектность OK</span>';
 
-            // Считаем фактическое оборудование для заголовка
             var actualCounts = {};
             actual.forEach(function(id) {
                 var inst = getInstance(id);
@@ -4392,7 +4537,6 @@ if (typeof define === 'function' && define.amd) {
             
             html += '<div style="padding:8px 12px; display:flex; flex-direction:column; gap:6px;">';
 
-            // Выводим то, что должно быть (План)
             if (planned.length === 0) {
                 html += '<div style="color:var(--text-muted);font-size:12px">Плановый состав не задан (нажмите 📦 в точках).</div>';
             } else {
@@ -4427,7 +4571,7 @@ if (typeof define === 'function' && define.amd) {
                 });
             }
 
-            // Выводим лишние
+            var extra = actual.filter(function(id) { return planned.indexOf(id) < 0; });
             if (extra.length > 0) {
                 extra.forEach(function(instId) {
                     var inst = getInstance(instId);
@@ -4445,7 +4589,7 @@ if (typeof define === 'function' && define.amd) {
             html += '</div></details>';
         });
 
-        // Теперь выводим Склады
+        // Выводим Склады
         var whKeys = Object.keys(placement).filter(function(k) { return placement[k].type === "warehouse" || placement[k].type === "reserve"; }).sort();
         
         whKeys.forEach(function(locName) {
@@ -4558,22 +4702,13 @@ if (typeof define === 'function' && define.amd) {
         var audit = audits.find(function(x){ return x.id === auditId; });
         if (!audit) return;
         
-        var pointIdx = data.findIndex(function(p){ return p.name === audit.pointName; });
-        if (pointIdx === -1) { alert("Точка не найдена (возможно, была переименована или удалена)."); return; }
-
-        // Восстанавливаем точку в состояние ДО проверки
-        if (audit.originalEquipmentList) {
-            data[pointIdx].equipmentList = audit.originalEquipmentList.slice();
-            // Возвращаем статусы приборам, которые были "ok" в этой проверке (они снова в точке)
-            audit.originalEquipmentList.forEach(function(instId){
-                var inst = getInstance(instId);
-                if (inst) {
-                    inst.status = "in_point";
-                    inst.pointId = pointIdx;
-                    inst.locationId = null;
-                }
-            });
+        // Ищем точку по ID, а не по имени
+        var pointIdx = data.findIndex(function(p){ return p.id === audit.pointId; });
+        if (pointIdx === -1) {
+            // Если ID не совпало (старая запись), ищем по имени
+            pointIdx = data.findIndex(function(p){ return p.name === audit.pointName; });
         }
+        if (pointIdx === -1) { alert("Точка не найдена."); return; }
 
         editAuditId = auditId;
         var sel = document.getElementById("auditPointSelect");
@@ -4588,18 +4723,33 @@ if (typeof define === 'function' && define.amd) {
     function renderAudits(){
     var tb=document.getElementById("auditsList");
     if(!audits.length){tb.innerHTML='<tr><td colspan="4" class="empty">Проверок нет</td></tr>';return;}
-    tb.innerHTML=audits.map(function(a){
-    var bad=(a.items||[]).filter(function(it){return it.result!=="ok";}).length;
-    return '<tr>'
-    +'<td>'+esc(formatRuDateShort(a.date))+'</td>'
-    +'<td>'+esc(a.pointName)+'</td>'
-    +'<td>'+(bad>0?'<span style="color:var(--red);font-weight:600">'+bad+'</span>':'<span style="color:var(--green)">OK</span>')+'</td>'
-    +'<td><div class="actions">'
-    +'<button type="button" class="edit" onclick="openEditAudit(\''+a.id+'\')" title="Продолжить/Редактировать">✎</button>'
-    +'<button type="button" class="info" onclick="printAudit(\''+a.id+'\')">📄</button>'
-+'<button type="button" class="danger" onclick="openAuditDeleteModal(\''+a.id+'\')" title="Удалить / Откатить">✕</button>'
-    +'</div></td>'
-    +'</tr>';
+    
+    tb.innerHTML=audits.map(function(a, index){
+        var bad=(a.items||[]).filter(function(it){return it.result!=="ok";}).length;
+        
+        // 1. Проверяем, есть ли более новые проверки этой же точки
+        var isNewest = !audits.some(function(other, otherIdx) {
+            return other.pointId === a.pointId && otherIdx < index;
+        });
+
+        // 2. Проверяем, сделана ли проверка СЕГОДНЯ
+        var isToday = (a.date === today());
+
+        // Кнопка редактирования только если это свежая запись И сделана сегодня
+        var editBtn = (isNewest && isToday) 
+            ? '<button type="button" class="edit" onclick="openEditAudit(\''+a.id+'\')" title="Продолжить/Редактировать">✎</button>' 
+            : '';
+
+        return '<tr>'
+        +'<td>'+esc(formatRuDateShort(a.date))+'</td>'
+        +'<td>'+esc(a.pointName)+'</td>'
+        +'<td>'+(bad>0?'<span style="color:var(--red);font-weight:600">'+bad+'</span>':'<span style="color:var(--green)">OK</span>')+'</td>'
+        +'<td style="text-align: right;"><div class="actions" style="justify-content: flex-end; flex-wrap: nowrap;">'
+        + editBtn
+        +'<button type="button" class="info" onclick="printAudit(\''+a.id+'\')" title="Печать">📄</button>'
+        +'<button type="button" class="danger" onclick="openAuditDeleteModal(\''+a.id+'\')" title="Удалить / Откатить">✕</button>'
+        +'</div></td>'
+        +'</tr>';
     }).join("");
     }
     
@@ -6099,21 +6249,32 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
         var idx = parseInt(document.getElementById("auditPointSelect").value,10);
         var p = data[idx];
         var container = document.getElementById("auditItems");
-        if(!p||!p.equipmentList||!p.equipmentList.length){container.innerHTML='<div style="color:var(--text-dim);padding:20px;text-align:center">В точке нет экземпляров</div>';return;}
+        if(!p) return;
         
         var oldResults = {};
+        var equipmentToRender = p.equipmentList || []; // По умолчанию берем текущий список
+
         if (editAuditId) {
             var oldAudit = audits.find(function(x){ return x.id === editAuditId; });
             if (oldAudit) {
+                // Если редактируем, показываем ИСХОДНЫЙ список оборудования
+                if (oldAudit.originalEquipmentList) {
+                    equipmentToRender = oldAudit.originalEquipmentList;
+                }
                 (oldAudit.items || []).forEach(function(r){ oldResults[r.instId] = r; });
             }
+        }
+
+        if(!equipmentToRender.length){
+            container.innerHTML='<div style="color:var(--text-dim);padding:20px;text-align:center">В точке нет экземпляров</div>';
+            return;
         }
 
         var repairLocs = locations.filter(function(l){return l.type === "repair";});
         var locOptions = repairLocs.map(function(l){ return '<option value="'+l.id+'">'+esc(l.name)+'</option>'; }).join("");
 
         var h='<table style="width:100%;border-collapse:collapse;font-size:13px"><tr><th>Модель</th><th>SN / SKU</th><th>Статус</th><th>Куда (если сломано)</th></tr>';
-        p.equipmentList.forEach(function(instId){
+        equipmentToRender.forEach(function(instId){
             var inst=getInstance(instId);if(!inst)return;
             var m=getModel(inst.modelId);
             
@@ -6171,6 +6332,12 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
             
             if(result==="ok"){
                 keepIds.push(instId);
+                // ВОЗВРАЩАЕМ СТАТУС ПРИБОРА НА МЕСТО
+                inst.status = "in_point";
+                inst.pointId = idx;
+                inst.locationId = null;
+                inst.condition = "ok";
+        
             }else{
                 problems++;
                 if(result==="broken"){
@@ -6731,7 +6898,13 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
     }
 
     document.getElementById("btnBackup").addEventListener("click",function(){
-    var backup={app:"rent-erp",version:5,createdAt:new Date().toISOString(),models:models,instances:instances,data:data,locations:locations,audits:audits,clients:clients,landlords:landlords,templates:templates,policy:postpayment?"postpay":"prepay"};
+    var backup={
+        app:"rent-erp", version:APP_VERSION, createdAt:new Date().toISOString(),
+        models:models, instances:instances, data:data, locations:locations, 
+        audits:audits, clients:clients, landlords:landlords, templates:templates,
+        dmxTooltips:dmxTooltips, labelDesign:labelDesign, catTree:CAT_TREE, 
+        cardOrder:cardOrder, policy:postpayment?"postpay":"prepay"
+    };
     var blob=new Blob([JSON.stringify(backup,null,2)],{type:"application/json"});
     var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="backup_erp_v5_"+today()+".json";
     document.body.appendChild(a);a.click();a.remove();
@@ -6740,7 +6913,7 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
     document.getElementById("btnRestore").addEventListener("click",function(){
     document.getElementById("restoreFile").click();
     });
-    document.getElementById("restoreFile").addEventListener("change",function(e){
+        document.getElementById("restoreFile").addEventListener("change",function(e){
     var f=e.target.files[0];if(!f)return;
     var reader=new FileReader();
     reader.onload=function(e){
@@ -6755,18 +6928,34 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
     clients=parsed.clients||[];
     landlords=parsed.landlords||[];
     templates=parsed.templates||[];
-    if(parsed.policy)postpayment=(parsed.policy==="postpay");
-    saveToStorage();renderPoints();renderModels();renderInstances();renderFleet();renderAudits();
+    if(parsed.dmxTooltips) dmxTooltips = parsed.dmxTooltips;
+    if(parsed.labelDesign) labelDesign = parsed.labelDesign;
+    if(parsed.catTree) { CAT_TREE = parsed.catTree; saveCatTree(); }
+    if(parsed.cardOrder) { cardOrder = parsed.cardOrder; localStorage.setItem("rent_card_order_v5", JSON.stringify(cardOrder)); }
+    if(parsed.policy) { postpayment=(parsed.policy==="postpay"); localStorage.setItem(POLICY_KEY, postpayment?"postpay":"prepay"); updatePolicyBtn(); }
+    
+    saveToStorage();renderPoints();renderModels();renderInstances();renderFleet();renderAudits();renderClients();renderTemplates();renderLandlords();renderDmxTooltipsSettings();
     alert("Восстановлено!");
     }catch(err){alert("Ошибка: "+err.message);}
     };
     reader.readAsText(f);e.target.value="";
     });
+
     document.getElementById("btnClear").addEventListener("click",function(){
-    if(!confirm("Удалить ВСЕ данные?"))return;
+    if(!confirm("Удалить ВСЕ данные (включая клиентов, шаблоны и настройки)?"))return;
     if(!confirm("Точно? Восстановить будет невозможно без бэкапа."))return;
+    
     models=[];instances=[];data=[];locations=[];audits=[];
-    saveToStorage();renderPoints();renderModels();renderInstances();renderFleet();renderAudits();
+    clients=[];landlords=[];templates=[];dmxTooltips={};
+    labelDesign = { width: 60, height: 24, layout: 'qr-left', fontSize: "normal", showSku: true, showSn: true, showModel: true, showLoc: false, customText: "" };
+    CAT_TREE = {}; 
+    cardOrder = ["pct", "rent", "accrued", "paid", "debt", "lastPaid", "nextPay", "power"];
+    
+    localStorage.removeItem("rent_cat_tree");
+    localStorage.removeItem("rent_card_order_v5");
+    
+    saveToStorage();renderPoints();renderModels();renderInstances();renderFleet();renderAudits();renderClients();renderTemplates();renderLandlords();renderDmxTooltipsSettings();
+    alert("Все данные успешно удалены.");
     });
     
     document.getElementById("setupConnectBtnTab").addEventListener("click",async function(){
@@ -6779,7 +6968,11 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
     var remote=await ghLoad();
     if(!confirm("Загрузить данные с GitHub? Текущие локальные данные будут заменены.")){ghToken=oT;ghGistId=oG;return;}
     localStorage.setItem(TOKEN_KEY,t);localStorage.setItem(GIST_KEY,g);
-    models=remote.models;instances=remote.instances;data=remote.data;locations=remote.locations;audits=remote.audits;clients=remote.clients||[];landlords=remote.landlords||[];templates=remote.templates||[];
+        models=remote.models;instances=remote.instances;data=remote.data;locations=remote.locations;audits=remote.audits;clients=remote.clients||[];landlords=remote.landlords||[];templates=remote.templates||[];dmxTooltips=remote.dmxTooltips||{};
+    if(remote.labelDesign) labelDesign = remote.labelDesign;
+    if(remote.catTree) { CAT_TREE = remote.catTree; saveCatTree(); }
+    if(remote.cardOrder) { cardOrder = remote.cardOrder; localStorage.setItem("rent_card_order_v5", JSON.stringify(cardOrder)); }
+    if(remote.policy) { postpayment = (remote.policy==="postpay"); localStorage.setItem(POLICY_KEY, postpayment?"postpay":"prepay"); updatePolicyBtn(); }
     saveToStorage();renderPoints();renderModels();renderInstances();renderFleet();renderAudits();switchTab("tab-points");
     setSync("ok",new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
     }catch(e){ghToken=oT;ghGistId=oG;document.getElementById("setupMsgTab").textContent=e.message;}
@@ -6791,7 +6984,11 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
     this.disabled=true;setSync("loading");
     try{
     var remote=await ghLoad();
-    models=remote.models;instances=remote.instances;data=remote.data;locations=remote.locations;audits=remote.audits;clients=remote.clients||[];landlords=remote.landlords||[];templates=remote.templates||[];
+        models=remote.models;instances=remote.instances;data=remote.data;locations=remote.locations;audits=remote.audits;clients=remote.clients||[];landlords=remote.landlords||[];templates=remote.templates||[];dmxTooltips=remote.dmxTooltips||{};
+    if(remote.labelDesign) labelDesign = remote.labelDesign;
+    if(remote.catTree) { CAT_TREE = remote.catTree; saveCatTree(); }
+    if(remote.cardOrder) { cardOrder = remote.cardOrder; localStorage.setItem("rent_card_order_v5", JSON.stringify(cardOrder)); }
+    if(remote.policy) { postpayment = (remote.policy==="postpay"); localStorage.setItem(POLICY_KEY, postpayment?"postpay":"prepay"); updatePolicyBtn(); }
     saveToStorage();renderPoints();renderModels();renderInstances();renderFleet();renderAudits();
     setSync("ok",new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
     }catch(e){setSync("error",e.message);alert("Ошибка: "+e.message);}
@@ -6867,7 +7064,11 @@ if (_migrated) saveToStorage();
     if(isConf()){
     setSync("loading");
     ghLoad().then(function(remote){
-        models=remote.models;instances=remote.instances;data=remote.data;locations=remote.locations;audits=remote.audits;clients=remote.clients||[];landlords=remote.landlords||[];templates=remote.templates||[];
+            models=remote.models;instances=remote.instances;data=remote.data;locations=remote.locations;audits=remote.audits;clients=remote.clients||[];landlords=remote.landlords||[];templates=remote.templates||[];dmxTooltips=remote.dmxTooltips||{};
+    if(remote.labelDesign) labelDesign = remote.labelDesign;
+    if(remote.catTree) { CAT_TREE = remote.catTree; saveCatTree(); }
+    if(remote.cardOrder) { cardOrder = remote.cardOrder; localStorage.setItem("rent_card_order_v5", JSON.stringify(cardOrder)); }
+    if(remote.policy) { postpayment = (remote.policy==="postpay"); localStorage.setItem(POLICY_KEY, postpayment?"postpay":"prepay"); updatePolicyBtn(); }
     saveToStorage();renderPoints();renderModels();renderInstances();renderFleet();renderAudits();
     setSync("ok",new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
     }).catch(function(e){
@@ -7665,93 +7866,88 @@ var tipEl=null, tipTimer=null, tipTarget=null;
     });
     
     window.showPointEquipmentStatus = function(pointIdx) {
-        var point = data[pointIdx];
-        if (!point) return;
-        
-        var planned = point.plannedList || point.equipmentList || [];
-        var actual = point.equipmentList || [];
-        
-        var missing = planned.filter(function(id) { return actual.indexOf(id) < 0; });
-        var extra = actual.filter(function(id) { return planned.indexOf(id) < 0; });
-        
-        if (missing.length === 0 && extra.length === 0) {
-            alert("В точке «" + point.name + "» всё в порядке. Комплектность совпадает с планом.");
-            return;
-        }
+    var point = data[pointIdx];
+    if (!point) return;
+    
+    var planned = point.plannedList || point.equipmentList || [];
+    var actual = point.equipmentList || [];
+    
+    // Считаем по моделям
+    var planCounts = {}, actualCounts = {};
+    planned.forEach(function(id) { var i = getInstance(id); if (i) planCounts[i.modelId] = (planCounts[i.modelId] || 0) + 1; });
+    actual.forEach(function(id) { var i = getInstance(id); if (i) actualCounts[i.modelId] = (actualCounts[i.modelId] || 0) + 1; });
 
-        var msg = "Точка: " + point.name + "\n\n";
-        
-        if (missing.length > 0) {
-            msg += "❌ НУЖНО ДОВЕЗТИ (не хватает):\n";
+    var missingModels = [], extraModels = [], totalMissing = 0;
+    for (var mId in planCounts) {
+        var diff = planCounts[mId] - (actualCounts[mId] || 0);
+        if (diff > 0) {
+            var m = getModel(mId);
+            missingModels.push({ name: m ? m.name : "Удалено", qty: diff, modelId: mId });
+            totalMissing += diff;
+        }
+    }
+    for (var mId in actualCounts) {
+        var diff = actualCounts[mId] - (planCounts[mId] || 0);
+        if (diff > 0) {
+            var m = getModel(mId);
+            extraModels.push({ name: m ? m.name : "Удалено", qty: diff });
+        }
+    }
+
+    if (totalMissing === 0 && extraModels.length === 0) {
+        alert("В точке «" + point.name + "» всё в порядке. Комплектность совпадает с планом.");
+        return;
+    }
+
+    var msg = "Точка: " + point.name + "\n\n";
+    
+    if (missingModels.length > 0) {
+        msg += "❌ НУЖНО ДОВЕЗТИ (не хватает):\n";
+        missingModels.forEach(function(item) {
+            msg += " • " + item.name + " — " + item.qty + " шт.\n";
+        });
+        msg += "\n";
+    }
+    
+    if (extraModels.length > 0) {
+        msg += "➕ ЛИШНИЕ (нет в плане):\n";
+        extraModels.forEach(function(item) {
+            msg += " • " + item.name + " — " + item.qty + " шт.\n";
+        });
+    }
+
+    document.getElementById("missingDetailsTitle").textContent = "Комплектность: " + point.name;
+    
+    var htmlContent = '<div style="white-space:pre-wrap; margin-bottom:15px;">' + esc(msg) + '</div>';
+    
+    // Оставляем ТОЛЬКО кнопки "Заменить" для сломанных/утерянных
+    if (missingModels.length > 0) {
+        var missingInsts = planned.filter(function(id) { return actual.indexOf(id) < 0; });
+        var hasRepairOrLost = false;
+        var buttonsHtml = '';
+
+        missingInsts.forEach(function(id) {
+            var inst = getInstance(id);
+            if (!inst) return;
+            var m = getModel(inst.modelId);
             
-            missing.forEach(function(id) {
-                var inst = getInstance(id);
-                if (!inst) return;
-                var m = getModel(inst.modelId);
-                var mName = m ? m.name : "[Удалено]";
-                
-                var locStr = "";
-                if (inst.status === "in_repair") {
-                    var l = getLocation(inst.locationId);
-                    locStr = "🛠 в ремонте (" + (l ? l.name : "мастер") + ")";
-                } else if (inst.status === "available") {
-                    var l = getLocation(inst.locationId);
-                    locStr = "🏢 на складе (" + (l ? l.name : "неизвестно") + ")";
-                } else if (inst.status === "in_point") {
-                    var p = data[inst.pointId];
-                    locStr = "📍 в точке (" + (p ? p.name : "неизвестно") + ")";
-                } else if (inst.status === "lost") {
-                    locStr = "❌ утерян";
-                } else if (inst.status === "reserved") {
-                    locStr = "📦 в резерве";
-                }
-                
-                msg += " • " + mName + " (SN: " + (inst.sn || "—") + ") — " + locStr + "\n";
-            });
-            msg += "\n";
-        }
-        
-        if (extra.length > 0) {
-            msg += "➕ ЛИШНИЕ (нет в плане, можно забрать):\n";
-            extra.forEach(function(id) {
-                var inst = getInstance(id);
-                if (!inst) return;
-                var m = getModel(inst.modelId);
-                msg += " • " + (m ? m.name : "[Удалено]") + " (SN: " + (inst.sn || "—") + ")\n";
-            });
-        }
+            if (inst.status === "in_repair" || inst.status === "lost") {
+                hasRepairOrLost = true;
+                buttonsHtml += '<button type="button" class="backup" style="margin:4px; padding:6px 10px; font-size:12px; background:var(--blue);" onclick="openReplaceModal(\'' + inst.id + '\', ' + pointIdx + ')">🔄 Заменить сломанный: ' + esc(m.name) + ' (SN: ' + esc(inst.sn || "—") + ')</button>';
+            }
+        });
 
-        document.getElementById("missingDetailsTitle").textContent = "Комплектность: " + point.name;
-        
-        var htmlContent = '<div style="white-space:pre-wrap; margin-bottom:15px;">' + esc(msg) + '</div>';
-        
-        if (missing.length > 0) {
+        if (hasRepairOrLost) {
             htmlContent += '<div style="border-top:1px solid var(--border); padding-top:10px;">';
             htmlContent += '<div style="font-weight:600; margin-bottom:8px; color:var(--text);">Быстрые действия:</div>';
-            
-            missing.forEach(function(id) {
-                var inst = getInstance(id);
-                if (!inst) return;
-                
-                var m = getModel(inst.modelId);
-                var mName = m ? m.name : "[Удалено]";
-                
-                // Кнопка "Забрать" (если он на складе или в другой точке)
-                if (inst.status === "available" || inst.status === "reserved" || inst.status === "in_point") {
-                    htmlContent += '<button type="button" class="backup" style="margin:4px; padding:6px 10px; font-size:12px; background:var(--green);" onclick="moveInstToPoint(\'' + inst.id + '\', ' + pointIdx + ')">⬇️ Забрать: ' + esc(mName) + ' (SN: ' + esc(inst.sn || "—") + ')</button>';
-                }
-                
-                // Кнопка "Заменить" (доступна всегда, если прибор сломан/утерян)
-                if (inst.status === "in_repair" || inst.status === "lost") {
-                    htmlContent += '<button type="button" class="backup" style="margin:4px; padding:6px 10px; font-size:12px; background:var(--blue);" onclick="openReplaceModal(\'' + inst.id + '\', ' + pointIdx + ')">🔄 Заменить сломанный: ' + esc(mName) + '</button>';
-                }
-            });
+            htmlContent += buttonsHtml;
             htmlContent += '</div>';
         }
+    }
 
-        document.getElementById("missingDetailsContent").innerHTML = htmlContent;
-        document.getElementById("missingDetailsModal").classList.add("active");
-    };
+    document.getElementById("missingDetailsContent").innerHTML = htmlContent;
+    document.getElementById("missingDetailsModal").classList.add("active");
+};
 
     window.moveInstToPoint = function(instId, pointIdx) {
         var inst = getInstance(instId);
@@ -8169,30 +8365,44 @@ window.openAuditDeleteModal = function(id) {
     var a = audits.find(function(x){ return x.id === id; });
     if (!a) return;
 
+    // ПРОВЕРКА: есть ли более новые инвентаризации для этой точки?
+    var aIndex = audits.findIndex(function(x){ return x.id === a.id; });
+    var newerAudits = audits.filter(function(x, idx) { 
+        // Если запись по этой же точке находится ВЫШЕ в списке (индекс меньше) - значит она новее
+        return x.pointId === a.pointId && idx < aIndex; 
+    });
+    var canRollback = (newerAudits.length === 0);
+
     var m = document.getElementById('auditDeleteModal');
     if (!m) {
         m = document.createElement('div');
         m.className = 'modal-bg';
         m.id = 'auditDeleteModal';
-        m.innerHTML = 
-            '<div class="modal" style="max-width:500px">' +
-                '<h3>🗑 Управление записью</h3>' +
-                '<p style="color:var(--text-muted);font-size:13px;margin-bottom:15px" id="auditDeleteInfo"></p>' +
-                '<div style="background:var(--th-bg);padding:12px;border-radius:8px;font-size:12px;margin-bottom:20px;line-height:1.5">' +
-                    '<b>Что сделать с оборудованием?</b><br><br>' +
-                    '• <b>Только удалить запись</b> — статусы приборов (в ремонте / утеряно) останутся как есть.<br><br>' +
-                    '• <b>Откатить и удалить</b> — приборы вернутся в точку, как будто проверки не было.' +
-                '</div>' +
-                '<div class="actions" style="justify-content:space-between;flex-wrap:wrap;gap:10px">' +
-                    '<button type="button" class="ghost" onclick="document.getElementById(\'auditDeleteModal\').classList.remove(\'active\')">Отмена</button>' +
-                    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-                        '<button type="button" class="danger" id="auditDelOnlyBtn" style="background:var(--orange)">🗑 Только удалить</button>' +
-                        '<button type="button" class="backup" id="auditRollbackBtn" style="background:var(--green)">↩ Откатить и удалить</button>' +
-                    '</div>' +
-                '</div>' +
-            '</div>';
         document.body.appendChild(m);
     }
+
+    m.innerHTML = 
+        '<div class="modal" style="max-width:500px">' +
+            '<h3>🗑 Удаление акта</h3>' +
+            '<p style="color:var(--text-muted);font-size:13px;margin-bottom:15px" id="auditDeleteInfo"></p>' +
+            
+            '<div style="background:var(--warn-bg); padding:15px; border-radius:8px; border-left:4px solid var(--orange); font-size:13px; margin-bottom:20px; line-height:1.5;">' +
+                '<div style="font-weight:bold; font-size:15px; color:var(--orange); margin-bottom:5px;">⚠️ СТОП!</div>' +
+                'Если кладовщик узнает, что ты удалил акт инвентаризации — <b>по попке получишь!</b> 💥<br><br>' +
+                (canRollback 
+                    ? 'Если ты просто ошибся и хочешь всё отменить — жми зеленую кнопку. Приборы вернутся на место, как будто проверки не было.'
+                    : '<span style="color:var(--red); font-weight:bold;">Откат заблокирован:</span> после этой проверки были другие. Придется сначала разобраться с ними.'
+                ) +
+            '</div>' +
+            
+            '<div class="actions" style="justify-content:space-between;flex-wrap:wrap;gap:10px">' +
+                '<button type="button" class="ghost" onclick="document.getElementById(\'auditDeleteModal\').classList.remove(\'active\')">Я передумал</button>' +
+                '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+                    '<button type="button" class="danger" id="auditDelOnlyBtn" style="background:var(--orange)" title="Удаляет запись, но оставляет приборы в текущем состоянии">🗑 Только удалить (без отката)</button>' +
+                    (canRollback ? '<button type="button" class="backup" id="auditRollbackBtn" style="background:var(--green)" title="Возвращает приборы в точку, как будто проверки не было">↩ Отменить проверку</button>' : '') +
+                '</div>' +
+            '</div>' +
+        '</div>';
 
     document.getElementById('auditDeleteInfo').innerHTML = 
         '<b>Дата:</b> ' + formatRuDateShort(a.date) + '<br>' +
@@ -8207,56 +8417,54 @@ window.openAuditDeleteModal = function(id) {
         m.classList.remove('active');
     };
 
-    document.getElementById('auditRollbackBtn').onclick = function() {
-        if (!a.originalEquipmentList) {
-            alert('❌ Ошибка: в этой записи нет данных для отката (старая версия инвентаризации).\nУдалите запись без отката.');
-            return;
-        }
-        
-        // Ищем точку (сначала по ID, если есть, потом по имени)
-        var pointIdx = -1;
-        if (a.pointId !== undefined) {
-            pointIdx = data.findIndex(function(p){ return p.id === a.pointId; });
-            if (pointIdx === -1) pointIdx = data.findIndex(function(p){ return p.name === a.pointName; });
-        } else {
-            pointIdx = data.findIndex(function(p){ return p.name === a.pointName; });
-        }
-
-        if (pointIdx === -1) {
-            alert('❌ Ошибка: точка «' + a.pointName + '» не найдена (возможно, удалена или переименована).\nОткат невозможен.');
-            return;
-        }
-
-        var point = data[pointIdx];
-        
-        // 1. Возвращаем список оборудования в точку
-        point.equipmentList = a.originalEquipmentList.slice();
-        if (!point.plannedList) point.plannedList = a.originalEquipmentList.slice();
-
-        // 2. Возвращаем статусы приборам
-        a.originalEquipmentList.forEach(function(instId) {
-            var inst = getInstance(instId);
-            if (inst) {
-                inst.status = "in_point";
-                inst.pointId = pointIdx;
-                inst.locationId = null;
-                inst.condition = "ok"; // Сбрасываем "сломано", так как откатываем проверку
+    if (canRollback) {
+        document.getElementById('auditRollbackBtn').onclick = function() {
+            if (!a.originalEquipmentList) {
+                alert('❌ Ошибка: в этой записи нет данных для отката (старая версия инвентаризации).\nУдалите запись без отката.');
+                return;
             }
-        });
+            
+            var pointIdx = -1;
+            if (a.pointId !== undefined) {
+                pointIdx = data.findIndex(function(p){ return p.id === a.pointId; });
+                if (pointIdx === -1) pointIdx = data.findIndex(function(p){ return p.name === a.pointName; });
+            } else {
+                pointIdx = data.findIndex(function(p){ return p.name === a.pointName; });
+            }
 
-        // 3. Удаляем запись
-        audits = audits.filter(function(x){ return x.id !== id; });
-        if (typeof editAuditId !== 'undefined' && editAuditId === id) editAuditId = null;
+            if (pointIdx === -1) {
+                alert('❌ Ошибка: точка «' + a.pointName + '» не найдена (возможно, удалена или переименована).\nОткат невозможен.');
+                return;
+            }
 
-        saveToStorage();
-        renderAudits();
-        renderPoints();
-        renderInstances();
-        renderFleet();
-        renderPlacement();
-        m.classList.remove('active');
-        alert('✅ Инвентаризация отменена. Оборудование возвращено в точку «' + point.name + '».');
-    };
+            var point = data[pointIdx];
+            
+            point.equipmentList = a.originalEquipmentList.slice();
+            if (!point.plannedList) point.plannedList = a.originalEquipmentList.slice();
+
+            a.originalEquipmentList.forEach(function(instId) {
+                var inst = getInstance(instId);
+                if (inst) {
+                    inst.status = "in_point";
+                    inst.pointId = pointIdx;
+                    inst.locationId = null;
+                    inst.condition = "ok"; 
+                }
+            });
+
+            audits = audits.filter(function(x){ return x.id !== id; });
+            if (typeof editAuditId !== 'undefined' && editAuditId === id) editAuditId = null;
+
+            saveToStorage();
+            renderAudits();
+            renderPoints();
+            renderInstances();
+            renderFleet();
+            renderPlacement();
+            m.classList.remove('active');
+            alert('✅ Инвентаризация отменена. Оборудование возвращено в точку «' + point.name + '».');
+        };
+    }
 
     m.classList.add('active');
 };
@@ -8378,7 +8586,6 @@ function handleScannedCode(code) {
     code = code.trim().toUpperCase();
     if (!code) return;
 
-    // Ищем по SKU или SN
     var inst = instances.find(function(i) { 
         return (i.sku && i.sku.toUpperCase() === code) || 
                (i.sn && i.sn.toUpperCase() === code); 
@@ -8389,6 +8596,51 @@ function handleScannedCode(code) {
         showScannerToast("❌ Не найдено: " + code, false);
         return;
     }
+
+    // === ЛОГИКА СЦЕНАРИЕВ ХАБА ===
+    if (window.currentScanMode === 'locate') {
+        var loc = "";
+        if (inst.status === "in_point" && data[inst.pointId]) loc = "📍 В точке: " + data[inst.pointId].name;
+        else if (inst.status === "in_repair") loc = "🛠 В ремонте: " + (getLocation(inst.locationId) ? getLocation(inst.locationId).name : "мастер");
+        else if (inst.status === "available") loc = "🏢 На складе: " + (getLocation(inst.locationId) ? getLocation(inst.locationId).name : "не указан");
+        else loc = "Статус: " + inst.status;
+
+        showScannerToast("🔍 " + (inst.sku || inst.sn) + " — " + loc, true);
+        window.currentScanMode = 'card'; // Сбрасываем после использования
+        return;
+    }
+
+    if (window.currentScanMode === 'assemble') {
+        var cb = document.querySelector('#selectInstList input[data-inst="' + inst.id + '"]');
+        if (cb) {
+            cb.checked = true;
+            cb.closest('label').style.background = "var(--ok-bg)";
+            showScannerToast("✅ Добавлен: " + (inst.sku || inst.sn), true);
+        } else {
+            showScannerToast("⚠️ Прибор недоступен для этой точки", false);
+        }
+        return;
+    }
+
+    if (window.currentScanMode === 'audit') {
+        var row = document.querySelector('#auditItems tr[data-inst="' + inst.id + '"]');
+        if (row) {
+            var select = row.querySelector(".audit-status");
+            if (select) {
+                select.value = "ok";
+                select.dispatchEvent(new Event('change'));
+                row.style.background = "var(--ok-bg)"; 
+                setTimeout(function(){ row.style.background = ""; }, 1000);
+                showScannerToast("✅ Отмечено: " + (inst.sku || inst.sn), true);
+            }
+        } else {
+            showScannerToast("⚠️ Прибора нет в списке этой точки", false);
+        }
+        return;
+    }
+
+    // Если режим 'card' или обычный - открываем карточку
+    // ... (остальной старый код с проверкой auditModal и selectInstModal) ...
 
     // Проверяем: может мы в режиме инвентаризации?
     var auditModal = document.getElementById("auditModal");
@@ -8480,6 +8732,137 @@ document.addEventListener("keydown", function(e) {
 // ============================================================
 // ==== /USB SCANNER MODULE ====
 // ============================================================
+
+// === СКАНЕР-ХАБ (Сценарии) ===
+var currentScanMode = 'card'; // По умолчанию - открыть карточку
+var scanTargetPointIdx = null;
+
+window.openScannerHub = function() {
+    document.getElementById('scannerHubModal').classList.add('active');
+};
+
+window.startScannerMode = function(mode) {
+    currentScanMode = mode;
+    
+    // Получаем выбранную точку
+    var sel = document.getElementById('scannerTargetPointSelect');
+    var pointIdx = parseInt(sel.value, 10);
+
+    if (isNaN(pointIdx) && (mode === 'assemble' || mode === 'audit')) {
+        alert("Пожалуйста, выберите точку из списка.");
+        return;
+    }
+
+    document.getElementById('scannerHubModal').classList.remove('active');
+
+    if (mode === 'audit') {
+        document.getElementById('auditPointSelect').value = String(pointIdx);
+        renderAuditItems();
+        document.getElementById('auditModal').classList.add('active');
+        setTimeout(function() { startCameraScanner(); }, 300);
+    } 
+    else if (mode === 'assemble') {
+        openSelectInstances(pointIdx);
+        setTimeout(function() { startCameraScanner(); }, 300);
+    } 
+    else {
+        startCameraScanner();
+    }
+};
+
+window.openScannerHub = function() {
+    var sel = document.getElementById('scannerTargetPointSelect');
+    sel.innerHTML = "";
+    data.forEach(function(p, i) {
+        sel.innerHTML += '<option value="'+i+'">'+esc(p.name)+'</option>';
+    });
+    document.getElementById('scannerHubModal').classList.add('active');
+};
+
+// ============================================================
+// ==== CAMERA SCANNER MODULE (v6.6) ====
+// ============================================================
+var videoStream = null;
+var cameraScanning = false;
+var videoElement = null;
+
+window.startCameraScanner = function() {
+    if (typeof jsQR === 'undefined') {
+        alert("Библиотека сканера не загружена. Проверьте интернет.");
+        return;
+    }
+    
+    document.getElementById('cameraScannerModal').classList.add('active');
+    videoElement = document.getElementById('cameraVideo');
+    var canvasElement = document.getElementById('cameraCanvas');
+    var canvas = canvasElement.getContext('2d', { willReadFrequently: true });
+
+    // Запрашиваем камеру (заднюю, если есть)
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+    .then(function(stream) {
+        videoStream = stream;
+        videoElement.srcObject = stream;
+        videoElement.setAttribute("playsinline", true); 
+        videoElement.play();
+        cameraScanning = true;
+        requestAnimationFrame(tick);
+
+        function tick() {
+            if (!cameraScanning) return;
+
+            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                canvasElement.height = videoElement.videoHeight;
+                canvasElement.width = videoElement.videoWidth;
+                canvas.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+                
+                var imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                var code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+
+                if (code) {
+                    // Если мы в режиме сборки или проверки - не закрываем камеру
+                    var keepOpen = (currentScanMode === 'assemble' || currentScanMode === 'audit');
+                    
+                    if (!keepOpen) {
+                        stopCameraScanner();
+                    }
+                    
+                    if (typeof playBeep === 'function') playBeep(true);
+                    if (typeof handleScannedCode === 'function') {
+                        handleScannedCode(code.data);
+                    }
+                    
+                    if (keepOpen) {
+                        // Небольшая пауза, чтобы не сканировать один и тот же код 100 раз в секунду
+                        setTimeout(function() {
+                            if (cameraScanning) requestAnimationFrame(tick);
+                        }, 1000);
+                    }
+                    return;
+                }
+            }
+            requestAnimationFrame(tick);
+        }
+    })
+    .catch(function(err) {
+        alert("❌ Ошибка доступа к камере:\n" + err.message + "\n\nУбедитесь, что вы открыли сайт по ссылке https:// (а не через файл) и разрешили доступ к камере.");
+        stopCameraScanner();
+    });
+};
+
+window.stopCameraScanner = function() {
+    cameraScanning = false;
+    document.getElementById('cameraScannerModal').classList.remove('active');
+    if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+    }
+    if (videoElement) {
+        videoElement.srcObject = null;
+    }
+};
+// ==== /CAMERA SCANNER MODULE ====
 
 // ============================================================
 // ==== ПОИСК ДУБЛЕЙ ЭКЗЕМПЛЯРОВ ====
@@ -8810,5 +9193,62 @@ window.saveLabelDesign = function() {
         </div>
     </div>
 </div>
+
+<!-- МОДАЛКА СКАНЕРА КАМЕРЫ -->
+<div class="modal-bg" id="cameraScannerModal">
+    <div class="modal" style="max-width:600px; padding:10px; background:#000;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:0 5px;">
+            <h3 style="color:#fff; margin:0; font-size:16px;">📷 Наведите на QR-код</h3>
+            <button type="button" class="danger" onclick="stopCameraScanner()" style="padding:4px 10px; font-size:12px;">✕ Закрыть</button>
+        </div>
+        <div id="cameraContainer" style="position:relative; width:100%; border-radius:8px; overflow:hidden; background:#222;">
+            <video id="cameraVideo" style="width:100%; height:auto; display:block;" playsinline autoplay muted></video>
+            <canvas id="cameraCanvas" style="display:none;"></canvas>
+            <!-- Прицел -->
+            <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:60%; height:60%; border:2px dashed rgba(255,255,255,0.5); border-radius:10px; pointer-events:none;"></div>
+        </div>
+        <p style="color:#aaa; font-size:12px; text-align:center; margin-top:10px;">Держите код в рамке</p>
+    </div>
+</div>
+<!-- КОНЕЦ МОДАЛКИ КАМЕРЫ -->
+
+<!-- МОДАЛКА СЦЕНАРИЕВ СКАНЕРА -->
+<div class="modal-bg" id="scannerHubModal">
+    <div class="modal" style="max-width:600px">
+        <h3>📷 Сканер: Выберите действие</h3>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:15px">Что вы собираетесь сделать с этим прибором?</p>
+        
+        <div class="field" style="margin-bottom:15px; background:var(--th-bg); padding:10px; border-radius:8px;">
+            <label style="font-weight:bold; color:var(--blue); margin-bottom:5px;">Сначала выберите точку (для сборки и проверки):</label>
+            <select id="scannerTargetPointSelect" style="width:100%"></select>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <button type="button" class="backup" style="text-align:left; padding:15px; font-size:15px; background:var(--green);" onclick="startScannerMode('assemble')">
+                📦 <b>Собрать точку</b><br><small style="font-weight:400">Сканировать приборы, чтобы добавить их в комплект</small>
+            </button>
+            
+            <button type="button" class="backup" style="text-align:left; padding:15px; font-size:15px; background:var(--orange);" onclick="startScannerMode('audit')">
+                📋 <b>Инвентаризация</b><br><small style="font-weight:400">Сканировать и отмечать приборы «На месте»</small>
+            </button>
+
+            <button type="button" class="backup" style="text-align:left; padding:15px; font-size:15px; background:var(--blue);" onclick="startScannerMode('locate')">
+                📍 <b>Где лежит прибор?</b><br><small style="font-weight:400">Сканировать, чтобы узнать текущее местоположение</small>
+            </button>
+
+            <button type="button" class="backup" style="text-align:left; padding:15px; font-size:15px; background:var(--purple);" onclick="startScannerMode('card')">
+                ℹ️ <b>Открыть карточку</b><br><small style="font-weight:400">Просто отсканировать и посмотреть информацию</small>
+            </button>
+        </div>
+
+        <div class="actions" style="justify-content:flex-end;margin-top:20px">
+            <button type="button" class="ghost" onclick="document.getElementById('scannerHubModal').classList.remove('active')">Отмена</button>
+        </div>
+    </div>
+</div> 
+<!-- Конец МОДАЛКА СЦЕНАРИЕВ СКАНЕРА -->
+
+
     </body>
+    
     </html>
