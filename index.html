@@ -353,6 +353,7 @@ details > summary:hover {
 <div class="user-info">
 <button class="policy-btn postpay" type="button" id="policyBtn">📅 <span id="policyLabel">Постоплата</span></button>
 <span id="syncStatus" class="sync-status offline">☁ Только локально</span>
+<span id="techSyncStatus" class="sync-status offline" style="display:none">🔧 Техник: не настроен</span>
 <button class="ghost small" type="button" id="refreshBtn">↻ <span class="btn-label">Обновить</span></button>
 <button class="theme-toggle ghost small" type="button" id="themeToggle">🌙</button>
 </div>
@@ -418,9 +419,9 @@ details > summary:hover {
     <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
     <div class="table-wrap">
     <table class="main-table">
-        <thead><tr>
-            <th>Точка</th><th>Оборудование</th><th>Старт</th><th>Конец</th><th>Мес.</th><th>Аренда/мес</th><th>Начислено</th><th>К оплате</th><th>Оплачено</th><th>Долг</th><th>След. платёж</th><th>Статус</th><th></th>
-            </tr></thead>
+        <thead id="pointsThead">
+            <!-- Заголовки будут меняться через JS в зависимости от роли -->
+        </thead>
     <tbody id="tbody"></tbody>
     </table>
     </div>
@@ -660,6 +661,17 @@ details > summary:hover {
         <input type="password" id="setupTokenTab" placeholder="Personal Access Token" style="width:100%;max-width:400px;margin-bottom:10px">
         <button id="setupConnectBtnTab" type="button">Подключиться к GitHub</button>
         <p id="setupMsgTab" style="color:var(--red);font-size:13px;margin-top:8px"></p>
+        
+        <!-- БЛОК ТЕХНИЧЕСКОГО GIST -->
+        <div style="margin-top: 25px; padding-top: 15px; border-top: 1px dashed var(--border);">
+            <h4 style="font-size: 14px; margin-bottom: 5px; color: var(--blue);">Настройки для Техника (Я СПЕЦИАЛИСТ!)</h4>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px;">Сюда будут сохраняться данные без финансов. Техник будет читать и писать только сюда.</p>
+            
+            <input type="text" id="setupTechGistId" placeholder="Технический Gist ID" style="width:100%;max-width:400px;margin-bottom:10px">
+            <input type="password" id="setupTechToken" placeholder="Технический Personal Access Token" style="width:100%;max-width:400px;margin-bottom:10px">
+            <button id="setupConnectTechBtn" type="button" class="backup" style="background:var(--purple)">Сохранить настройки Техника</button>
+            <p id="setupTechMsg" style="color:var(--red);font-size:13px;margin-top:8px"></p>
+        </div>
     </div>
 </div>
 
@@ -921,13 +933,19 @@ details > summary:hover {
     </form>
 </div></div>
 
-<div class="modal-bg" id="auditModal"><div class="modal" style="max-width:800px">
-    <h3>Инвентаризация</h3>
-    <div class="field" style="margin-bottom:15px">
+<div class="modal-bg" id="auditModal"><div class="modal" style="max-width:950px">
+       <h3 id="auditModalTitle">Инвентаризация</h3>
+    <div class="field" id="auditPointSelectWrapper" style="margin-bottom:15px">
         <label>Выберите точку:</label>
         <select id="auditPointSelect" style="width:100%"></select>
     </div>
-    <div id="auditItems" style="margin-bottom:15px"></div>
+    
+    <!-- Кнопка сканера для инвентаризации -->
+    <div style="margin-bottom:15px; display:flex; gap:10px;">
+        <button type="button" class="backup" style="background:var(--blue); width:100%" onclick="window.currentScanMode = 'audit'; startCameraScanner()">📷 Сканировать QR-код</button>
+    </div>
+
+    <div id="auditItems" style="margin-bottom:15px; max-height: 60vh; overflow-y: auto;"></div>
     <div class="actions" style="justify-content:flex-end">
         <button type="button" class="ghost" id="auditCancel">Отмена</button>
         <button type="button" id="auditSaveBtn" class="backup">Завершить</button>
@@ -3408,6 +3426,9 @@ if (typeof define === 'function' && define.amd) {
     
     var ghToken=localStorage.getItem(TOKEN_KEY)||"";
     var ghGistId=localStorage.getItem(GIST_KEY)||"";
+    var T_TOKEN_KEY="gh_tech_token", T_GIST_KEY="gh_tech_gist_id";
+    var ghTechToken=localStorage.getItem(T_TOKEN_KEY)||"";
+    var ghTechGistId=localStorage.getItem(T_GIST_KEY)||"";
     var postpayment;
     var _sp=localStorage.getItem(POLICY_KEY);
     if(_sp==="prepay"||_sp==="current")postpayment=false;else postpayment=true;
@@ -3453,78 +3474,175 @@ if (typeof define === 'function' && define.amd) {
     return MONTHS_SHORT[m]+" "+y;
     }
     
+        // === ФУНКЦИЯ ОЧИСТКИ ДАННЫХ ДЛЯ ТЕХНИКА ===
+        function getTechPayload() {
+        // Создаем копию точек без финансов, но с именем и телефоном клиента
+        var techData = data.map(function(p) {
+            var client = clients.find(function(c) { return c.id === p.clientId; });
+            return {
+                id: p.id,
+                name: p.name,
+                startDate: p.startDate,
+                endDate: p.endDate,
+                equipmentList: p.equipmentList || [],
+                plannedList: p.plannedList || [],
+                clientName: client ? client.name : null,
+                clientPhone: client ? client.phone : null
+                // rent, payments, payDay, clientId - НЕ передаем!
+            };
+        });
+        
+        return {
+            app: "rent-erp", version: APP_VERSION,
+            models: models, instances: instances, data: techData,
+            locations: locations, audits: audits, dmxTooltips: dmxTooltips,
+            labelDesign: labelDesign, catTree: CAT_TREE, cardOrder: cardOrder,
+            clients: [], landlords: [], templates: [], // Скрываем контрагентов и документы
+            policy: postpayment ? "postpay" : "prepay"
+        };
+    }
     function saveToStorage(){
         try{localStorage.setItem(KEY,JSON.stringify({models:models,instances:instances,data:data,locations:locations,audits:audits,clients:clients,landlords:landlords,templates:templates, dmxTooltips:dmxTooltips, labelDesign:labelDesign}));}catch(e){alert("Ошибка сохранения: "+e.message);} 
     if(isConf())syncSave();
     }
-    function setSync(s,m){
-    var el=document.getElementById("syncStatus");if(!el)return;
-    el.className="sync-status "+s;
-    if(s==="ok"){el.textContent="✓ Синхронизировано"+(m?" "+m:"");el.title="Сохранено";}
-    else if(s==="saving"){el.textContent="⟳ Сохранение...";}
-    else if(s==="loading"){el.textContent="⟳ Загрузка...";}
-    else if(s==="error"){el.textContent="⚠ Ошибка";el.title=m||"";}
-    else{el.textContent="☁ Только локально";el.title="Локально";}
+    function setSync(s, m) {
+        var el = document.getElementById("syncStatus");
+        if (!el) return;
+        el.className = "sync-status " + s;
+        if (s === "ok") { el.textContent = "📦 Мастер: ✓ " + (m || ""); el.title = "Сохранено"; }
+        else if (s === "saving") { el.textContent = "📦 Мастер: ⟳"; }
+        else if (s === "loading") { el.textContent = "📦 Мастер: Загрузка..."; }
+        else if (s === "error") { el.textContent = "📦 Мастер: ⚠ Ошибка"; el.title = m || ""; }
+        else { el.textContent = "📦 Мастер: ☁ Локально"; el.title = "Локально"; }
+    }
+
+    function setTechSync(s, m) {
+        var el = document.getElementById("techSyncStatus");
+        if (!el) return;
+        el.className = "sync-status " + s;
+        if (s === "ok") { el.textContent = "🔧 Техник: ✓ " + (m || ""); el.title = "Сохранено"; }
+        else if (s === "saving") { el.textContent = "🔧 Техник: ⟳"; }
+        else if (s === "loading") { el.textContent = "🔧 Техник: Загрузка..."; }
+        else if (s === "error") { el.textContent = "🔧 Техник: ⚠ Ошибка"; el.title = m || ""; }
+        else { el.textContent = "🔧 Техник: ☁ Выкл"; el.title = "Не настроен"; }
     }
     document.getElementById("syncStatus").addEventListener("click",function(){
     if(this.className.indexOf("error")>-1)alert("Ошибка:\n"+(this.title||""));
     });
     
-    function ghH(){return{"Authorization":"token "+ghToken,"Accept":"application/vnd.github+json"};}
-    async function ghLoad(){
-    var r=await fetch(API+ghGistId,{headers:ghH()});
-    if(!r.ok){
-    if(r.status===401)throw new Error("Неверный токен (401)");
-    if(r.status===404)throw new Error("Гист не найден (404)");
-    throw new Error("HTTP "+r.status);
+        // === УНИВЕРСАЛЬНЫЕ ФУНКЦИИ ДЛЯ GITHUB ===
+        function ghH(token) { 
+    // Очищаем токен от любых невидимых символов, пробелов и кириллицы
+    var cleanToken = String(token).replace(/[^\x20-\x7E]/g, '').trim(); 
+    return {"Authorization": "token " + cleanToken, "Accept": "application/vnd.github+json"}; 
+}
+
+async function apiLoad(token, gistId) {
+        // Очищаем Gist ID и токен от любых пробелов и невидимых символов
+        var cleanGistId = String(gistId).trim().replace(/[^a-zA-Z0-9]/g, '');
+        var cleanToken = String(token).replace(/[^\x20-\x7E]/g, '').trim();
+        
+        var r = await fetch(API + cleanGistId, {
+            headers: {
+                "Authorization": "token " + cleanToken,
+                "Accept": "application/vnd.github+json"
+            }
+        });
+        if (!r.ok) {
+            if (r.status === 401) throw new Error("Неверный токен (401)");
+            if (r.status === 404) throw new Error("Гист не найден (404)");
+            throw new Error("HTTP " + r.status);
+        }
+        var j = await r.json();
+        var f = j.files && j.files[FILE_NAME];
+        if (!f) throw new Error('Нет файла ' + FILE_NAME);
+        var c = f.content;
+        if (f.truncated && f.raw_url) { var rr = await fetch(f.raw_url); c = await rr.text(); }
+        var parsed = JSON.parse(c || "{}");
+        return {
+            models: parsed.models || [], instances: parsed.instances || [],
+            data: parsed.data || [], locations: parsed.locations || [],
+            audits: parsed.audits || [], clients: parsed.clients || [],
+            landlords: parsed.landlords || [], templates: parsed.templates || [],
+            dmxTooltips: parsed.dmxTooltips || {}, labelDesign: parsed.labelDesign || null,
+            catTree: parsed.catTree || null, cardOrder: parsed.cardOrder || null,
+            policy: parsed.policy || null
+        };
     }
-    var j=await r.json();
-    var f=j.files&&j.files[FILE_NAME];
-    if(!f)throw new Error('Нет файла '+FILE_NAME);
-    var c=f.content;
-    if(f.truncated&&f.raw_url){var rr=await fetch(f.raw_url);c=await rr.text();}
-    var parsed=JSON.parse(c||"{}");
-    return {
-    models: parsed.models||[],
-    instances: parsed.instances||[],
-    data: parsed.data||[],
-    locations: parsed.locations||[],
-    audits: parsed.audits||[],
-    clients: parsed.clients||[],
-    landlords: parsed.landlords||[],
-    templates: parsed.templates||[],
-    dmxTooltips: parsed.dmxTooltips||{},
-    labelDesign: parsed.labelDesign || null,
-    catTree: parsed.catTree || null,
-    cardOrder: parsed.cardOrder || null,
-    policy: parsed.policy || null
-    };
+
+    async function apiSave(token, gistId, payload) {
+        var cleanGistId = String(gistId).trim().replace(/[^a-zA-Z0-9]/g, '');
+        var cleanToken = String(token).replace(/[^\x20-\x7E]/g, '').trim();
+        
+        var files = {};
+        files[FILE_NAME] = { content: JSON.stringify(payload, null, 2) };
+        
+        var r = await fetch(API + cleanGistId, {
+            method: "PATCH", 
+            headers: {
+                "Authorization": "token " + cleanToken,
+                "Accept": "application/vnd.github+json",
+                "Content-Type": "application/json"
+            }, 
+            body: JSON.stringify({files: files})
+        });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
     }
-    async function ghSave(){
-    var files={};
-    var payload={
-        app:"rent-erp", version:APP_VERSION, 
-        models:models, instances:instances, data:data, 
-        locations:locations, audits:audits, clients:clients, 
-        landlords:landlords, templates:templates,
-        dmxTooltips:dmxTooltips, 
-        labelDesign:labelDesign,
-        catTree:CAT_TREE,
-        cardOrder:cardOrder,
-        policy:postpayment?"postpay":"prepay"
-    };
-    files[FILE_NAME]={content:JSON.stringify(payload,null,2)};
-    var r=await fetch(API+ghGistId,{method:"PATCH",headers:Object.assign({"Content-Type":"application/json"},ghH()),body:JSON.stringify({files:files})});
-    if(!r.ok)throw new Error("HTTP "+r.status);
-    return r.json();
-    }
-    async function syncSave(){
-    if(!isConf())return;
-    if(syncing){saveQueued=true;return;}
-    syncing=true;setSync("saving");
-    try{await ghSave();setSync("ok",new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));}
-    catch(e){setSync("error",e.message);}
-    finally{syncing=false;if(saveQueued){saveQueued=false;syncSave();}}
+    async function syncSave() {
+        if (syncing) { saveQueued = true; return; }
+        syncing = true; 
+        
+        // Показываем процесс сохранения
+        if (currentRole === "admin") setSync("saving");
+        if (currentRole === "tech" || (currentRole === "admin" && ghTechToken && ghTechGistId)) setTechSync("saving");
+
+        try {
+            var masterPayload = {
+                app: "rent-erp", version: APP_VERSION, models: models, instances: instances, 
+                data: data, locations: locations, audits: audits, clients: clients, 
+                landlords: landlords, templates: templates, dmxTooltips: dmxTooltips, 
+                labelDesign: labelDesign, catTree: CAT_TREE, cardOrder: cardOrder, 
+                policy: postpayment ? "postpay" : "prepay"
+            };
+
+            if (currentRole === "admin") {
+                // 1. СОХРАНЯЕМ В МАСТЕР
+                if (ghToken && ghGistId) {
+                    await apiSave(ghToken, ghGistId, masterPayload);
+                    setSync("ok", new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
+                } else {
+                    setSync("offline");
+                }
+
+                // 2. СОХРАНЯЕМ В ТЕХНИЧЕСКИЙ (Только если настроен!)
+                if (ghTechToken && ghTechGistId) {
+                    try {
+                        await apiSave(ghTechToken, ghTechGistId, getTechPayload());
+                        setTechSync("ok", new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
+                    } catch (techErr) {
+                        setTechSync("error", techErr.message);
+                    }
+                } else {
+                    setTechSync("offline");
+                }
+            } else {
+                // ТЕХНИК СОХРАНЯЕТ ТОЛЬКО В ТЕХНИЧЕСКИЙ
+                if (ghTechToken && ghTechGistId) {
+                    await apiSave(ghTechToken, ghTechGistId, getTechPayload());
+                    setTechSync("ok", new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
+                } else {
+                    setTechSync("offline");
+                }
+            }
+        } catch(e) {
+            // Эта ошибка относится только к Мастеру (если мы Админ)
+            if (currentRole === "admin") setSync("error", e.message);
+            else setTechSync("error", e.message);
+        } finally {
+            syncing = false;
+            if (saveQueued) { saveQueued = false; syncSave(); }
+        }
     }
     
     function switchTab(tabId){
@@ -3641,90 +3759,122 @@ if (typeof define === 'function' && define.amd) {
     });
 
     function renderPoints(){
-    var tb=document.getElementById("tbody");tb.innerHTML="";
-    var tm=0,td=0,tp=0;
-    document.getElementById("empty").style.display=data.length?"none":"block";
-    data.forEach(function(item,i){
-    var c=calc(item);tm+=+item.rent||0;td+=c.debt;tp+=c.paid;
-    var np=nextPay(item);
-    var pc="soon",pt="—";
-    if(np){var dd=daysUntil(np);pt=formatRuDateShort(np);if(dd<=3){pc="debt";pt+=" ("+dd+" дн.)";}else if(dd<=10){pc="warn";pt+=" ("+dd+" дн.)";}}
-    else if(c.debt>0.01){pc="debt";pt="ПРОСРОЧЕНО";}
-    var st,cl;
-    if(c.debt>0.01&&c.paid===0){st="Не платит";cl="debt";}
-    else if(c.debt>0.01){st="Частично";cl="warn";}
-    else if(c.debt<-0.01){st="Переплата";cl="credit";}
-    else if(c.due===0){st="Ожидает";cl="soon";}
-    else{st="Оплачено";cl="ok";}
-    if(isEnded(item)){st="Завершена";cl="ended";}
-    var dt=c.debt>0.01?fmt(c.debt):(c.debt<-0.01?"−"+fmt(Math.abs(c.debt)):"—");
-    var dc=c.debt>0.01?"var(--red-dark)":(c.debt<-0.01?"var(--purple-dark)":"var(--green)");
-    var actualCount = (item.equipmentList || []).length;
-    // Считаем идеальную комплектность по моделям
-    var isPerfect = true;
-    var planCounts = {}, actCounts = {};
-    (item.plannedList || []).forEach(function(id){ var i = getInstance(id); if(i) planCounts[i.modelId] = (planCounts[i.modelId]||0)+1; });
-    (item.equipmentList || []).forEach(function(id){ var i = getInstance(id); if(i) actCounts[i.modelId] = (actCounts[i.modelId]||0)+1; });
-    for(var mid in planCounts){ if(planCounts[mid] > (actCounts[mid]||0)) { isPerfect = false; break; } }
-
-    var eqTxt = !isPerfect ? "⚠ Есть нехватка" : actualCount + " шт.";
-    var tr=document.createElement("tr");
-    tr.dataset.idx=String(i);
-    if(window.matchMedia&&window.matchMedia("(hover:hover) and (pointer:fine)").matches)tr.draggable=true;
-    tr.innerHTML=
-    '<td data-label="Точка"><strong>'+esc(item.name)+'</strong>'+(item.clientId && clients.find(function(x){return x.id===item.clientId;}) ? '<br><span style="font-size:11px;color:var(--text-muted)">👤 '+esc(clients.find(function(x){return x.id===item.clientId;}).name)+'</span>' : '')+'</td>'
-          +'<td data-label="Оборудование"><span class="eq-cell" onclick="showPointEquipmentStatus('+i+')" title="Нажмите для подробностей" style="cursor:pointer; color:'+(!isPerfect ? 'var(--red)' : 'inherit')+';font-weight:'+(!isPerfect ? '600' : 'normal')+'">'+(!isPerfect ? '⚠ ' : '')+eqTxt+'</span></td>'
-    +'<td data-label="Старт">'+esc(formatRuDateShort(item.startDate))+'</td>'
-    +'<td data-label="Конец">'+(item.endDate?esc(formatRuDateShort(item.endDate)):"—")+'</td>'
-    +'<td data-label="Мес.">'+c.months+'</td>'
-    +'<td data-label="Аренда">'+fmt(item.rent)+'</td>'
-    +'<td data-label="Начислено">'+fmt(c.accrued)+'</td>'
-    +'<td data-label="К оплате">'+fmt(c.due)+'</td>'
-    +'<td data-label="Оплачено">'+fmt(c.paid)+'</td>'
-    +'<td data-label="Долг" style="color:'+dc+';font-weight:600">'+dt+'</td>'
-    +'<td data-label="След. платёж"><span class="badge '+pc+'">'+pt+'</span></td>'
-    +'<td data-label="Статус"><span class="badge '+cl+'">'+st+'</span></td>'
-    +'<td><div class="actions">'
-    +'<button type="button" class="info" data-act="inst" data-i="'+i+'" title="Экземпляры">📦</button>'
-    +'<button type="button" class="pay" data-act="pay" data-i="'+i+'" title="Оплаты">₽</button>'
-    +'<button type="button" class="edit" data-act="edit" data-i="'+i+'" title="Редактировать">✎</button>'
-    +'<button type="button" class="info" data-act="act" data-i="'+i+'" title="Печать акта" style="background:var(--blue)">📄</button>'
-    +'<button type="button" class="info" data-act="doc" data-i="'+i+'" title="Сформировать документ по шаблону" style="background:var(--green)">📝</button>'
-        +'<button type="button" class="info" data-act="return" data-i="'+i+'" title="Оформить возврат" style="background:var(--orange)">📥</button>'
-    +'<button type="button" class="info" data-act="cal" data-i="'+i+'" title="Календарь (ICS)" style="background:var(--purple)">📅</button>'
-    +'<button type="button" class="danger" data-act="del" data-i="'+i+'" title="Удалить">✕</button>'
-    +'</div></td>';
-    tb.appendChild(tr);
-    });
-    document.getElementById("statCount").textContent=data.length;
-    document.getElementById("statMonthly").textContent=fmt(tm);
+        var tb=document.getElementById("tbody");tb.innerHTML="";
         
-    // === СЧЕТЧИК НЕ ХВАТАЮЩЕГО ОБОРУДОВАНИЯ ===
+        // === НАСТРОЙКА ТАБЛИЦЫ ПОД РОЛЬ ===
+        var thead = document.getElementById("pointsThead");
+        if (currentRole === "tech") {
+            thead.innerHTML = '<tr><th>Точка</th><th>Оборудование</th><th>След. обслуживание</th><th>Действия</th></tr>';
+        } else {
+            thead.innerHTML = '<tr><th>Точка</th><th>Оборудование</th><th>Старт</th><th>Конец</th><th>Мес.</th><th>Аренда/мес</th><th>Начислено</th><th>К оплате</th><th>Оплачено</th><th>Долг</th><th>След. платёж</th><th>Статус</th><th></th></tr>';
+        }
+        // ===================================
+        
+        var tm=0,td=0,tp=0;
+        document.getElementById("empty").style.display=data.length?"none":"block";
+        data.forEach(function(item,i){
+            var c=calc(item);tm+=+item.rent||0;td+=c.debt;tp+=c.paid;
+            var np=nextPay(item);
+            var pc="soon",pt="—";
+            if(np){var dd=daysUntil(np);pt=formatRuDateShort(np);if(dd<=3){pc="debt";pt+=" ("+dd+" дн.)";}else if(dd<=10){pc="warn";pt+=" ("+dd+" дн.)";}}
+            else if(c.debt>0.01){pc="debt";pt="ПРОСРОЧЕНО";}
+            var st,cl;
+            if(c.debt>0.01&&c.paid===0){st="Не платит";cl="debt";}
+            else if(c.debt>0.01){st="Частично";cl="warn";}
+            else if(c.debt<-0.01){st="Переплата";cl="credit";}
+            else if(c.due===0){st="Ожидает";cl="soon";}
+            else{st="Оплачено";cl="ok";}
+            if(isEnded(item)){st="Завершена";cl="ended";}
+            var dt=c.debt>0.01?fmt(c.debt):(c.debt<-0.01?"−"+fmt(Math.abs(c.debt)):"—");
+            var dc=c.debt>0.01?"var(--red-dark)":(c.debt<-0.01?"var(--purple-dark)":"var(--green)");
+            var actualCount = (item.equipmentList || []).length;
+            
+            // Считаем идеальную комплектность по моделям
+            var isPerfect = true;
+            var planCounts = {}, actCounts = {};
+            (item.plannedList || []).forEach(function(id){ var i = getInstance(id); if(i) planCounts[i.modelId] = (planCounts[i.modelId]||0)+1; });
+            (item.equipmentList || []).forEach(function(id){ var i = getInstance(id); if(i) actCounts[i.modelId] = (actCounts[i.modelId]||0)+1; });
+            for(var mid in planCounts){ if(planCounts[mid] > (actCounts[mid]||0)) { isPerfect = false; break; } }
+
+            var eqTxt = !isPerfect ? "⚠ Есть нехватка" : actualCount + " шт.";
+            var tr=document.createElement("tr");
+            tr.dataset.idx=String(i);
+            if(window.matchMedia&&window.matchMedia("(hover:hover) and (pointer:fine)").matches)tr.draggable=true;
+            
+            if (currentRole === "tech") {
+                // === ВЕРСТКА ДЛЯ ТЕХНИКА (ТОЛЬКО НУЖНЫЕ КОЛОНКИ) ===
+                var clientName = item.clientName || (item.clientId && clients.find(function(x){return x.id===item.clientId;}) ? clients.find(function(x){return x.id===item.clientId;}).name : '');
+                var clientPhone = item.clientPhone || (item.clientId && clients.find(function(x){return x.id===item.clientId;}) ? clients.find(function(x){return x.id===item.clientId;}).phone : '');
+                var clientHtml = clientName ? '<br><span style="font-size:11px;color:var(--text-muted)">👤 '+esc(clientName)+(clientPhone?' • '+formatPhone(clientPhone):'')+'</span>' : '';
+                
+                var eqTxtTech = !isPerfect ? "⚠ Есть нехватка" : actualCount + " шт.";
+
+                tr.innerHTML =
+                    '<td data-label="Точка"><strong>'+esc(item.name)+'</strong>'+clientHtml+'</td>'
+                    +'<td data-label="Оборудование"><span class="eq-cell" onclick="showPointEquipmentStatus('+i+')" title="Нажмите для подробностей" style="cursor:pointer; color:'+(!isPerfect ? 'var(--red)' : 'inherit')+';font-weight:'+(!isPerfect ? '600' : 'normal')+'">'+(!isPerfect ? '⚠ ' : '')+eqTxtTech+'</span></td>'
+                    +'<td data-label="След. обслуживание"><span style="color:var(--text-muted); font-size:12px;">Модуль в разработке</span></td>'
+                    +'<td data-label="Действия"><div class="actions">'
+                +'<button type="button" class="info" data-act="inst" data-i="'+i+'" title="Экземпляры">📦</button>'
+                +'<button type="button" class="info" data-act="audit" data-i="'+i+'" title="Инвентаризация" style="background:var(--blue)">📋</button>'
+                +'<button type="button" class="info" data-act="service" data-i="'+i+'" title="Отметить как обслужено" style="background:var(--green)">✅</button>'
+                +'<button type="button" class="info" data-act="return" data-i="'+i+'" title="Оформить возврат" style="background:var(--orange)">📥</button>'
+            +'</div></td>';
+            } else {
+                // === ВЕРСТКА ДЛЯ АДМИНА (ПОЛНАЯ) ===
+                tr.innerHTML=
+                    '<td data-label="Точка"><strong>'+esc(item.name)+'</strong>'+(item.clientId && clients.find(function(x){return x.id===item.clientId;}) ? '<br><span style="font-size:11px;color:var(--text-muted)">👤 '+esc(clients.find(function(x){return x.id===item.clientId;}).name)+'</span>' : '')+'</td>'
+                    +'<td data-label="Оборудование"><span class="eq-cell" onclick="showPointEquipmentStatus('+i+')" title="Нажмите для подробностей" style="cursor:pointer; color:'+(!isPerfect ? 'var(--red)' : 'inherit')+';font-weight:'+(!isPerfect ? '600' : 'normal')+'">'+(!isPerfect ? '⚠ ' : '')+eqTxt+'</span></td>'
+                    +'<td data-label="Старт">'+esc(formatRuDateShort(item.startDate))+'</td>'
+                    +'<td data-label="Конец">'+(item.endDate?esc(formatRuDateShort(item.endDate)):"—")+'</td>'
+                    +'<td data-label="Мес.">'+c.months+'</td>'
+                    +'<td data-label="Аренда">'+fmt(item.rent)+'</td>'
+                    +'<td data-label="Начислено">'+fmt(c.accrued)+'</td>'
+                    +'<td data-label="К оплате">'+fmt(c.due)+'</td>'
+                    +'<td data-label="Оплачено">'+fmt(c.paid)+'</td>'
+                    +'<td data-label="Долг" style="color:'+dc+';font-weight:600">'+dt+'</td>'
+                    +'<td data-label="След. платёж"><span class="badge '+pc+'">'+pt+'</span></td>'
+                    +'<td data-label="Статус"><span class="badge '+cl+'">'+st+'</span></td>'
+                    +'<td><div class="actions">'
+                    +'<button type="button" class="info" data-act="inst" data-i="'+i+'" title="Экземпляры">📦</button>'
+                    +'<button type="button" class="pay" data-act="pay" data-i="'+i+'" title="Оплаты">₽</button>'
+                    +'<button type="button" class="edit" data-act="edit" data-i="'+i+'" title="Редактировать">✎</button>'
+                    +'<button type="button" class="info" data-act="act" data-i="'+i+'" title="Печать акта" style="background:var(--blue)">📄</button>'
+                    +'<button type="button" class="info" data-act="doc" data-i="'+i+'" title="Сформировать документ по шаблону" style="background:var(--green)">📝</button>'
+                    +'<button type="button" class="info" data-act="return" data-i="'+i+'" title="Оформить возврат" style="background:var(--orange)">📥</button>'
+                    +'<button type="button" class="info" data-act="cal" data-i="'+i+'" title="Календарь (ICS)" style="background:var(--purple)">📅</button>'
+                    +'<button type="button" class="danger" data-act="del" data-i="'+i+'" title="Удалить">✕</button>'
+                    +'</div></td>';
+            }
+            tb.appendChild(tr);
+        });
+        
+        document.getElementById("statCount").textContent=data.length;
+        document.getElementById("statMonthly").textContent=fmt(tm);
+            
         // === УМНЫЙ СЧЕТЧИК НЕ ХВАТАЮЩЕГО ОБОРУДОВАНИЯ (ПО МОДЕЛЯМ) ===
         var totalMissingEq = 0;
-    data.forEach(function(point) {
-        var planned = point.plannedList || point.equipmentList || [];
-        var actual = point.equipmentList || [];
+        data.forEach(function(point) {
+            var planned = point.plannedList || point.equipmentList || [];
+            var actual = point.equipmentList || [];
 
-        var planCounts = {}, actualCounts = {};
-        planned.forEach(function(id) { var i = getInstance(id); if (i) planCounts[i.modelId] = (planCounts[i.modelId] || 0) + 1; });
-        actual.forEach(function(id) { var i = getInstance(id); if (i) actualCounts[i.modelId] = (actualCounts[i.modelId] || 0) + 1; });
+            var planCounts = {}, actualCounts = {};
+            planned.forEach(function(id) { var i = getInstance(id); if (i) planCounts[i.modelId] = (planCounts[i.modelId] || 0) + 1; });
+            actual.forEach(function(id) { var i = getInstance(id); if (i) actualCounts[i.modelId] = (actualCounts[i.modelId] || 0) + 1; });
 
-        for (var mId in planCounts) {
-            if (planCounts[mId] > (actualCounts[mId] || 0)) {
-                totalMissingEq += (planCounts[mId] - (actualCounts[mId] || 0));
+            for (var mId in planCounts) {
+                if (planCounts[mId] > (actualCounts[mId] || 0)) {
+                    totalMissingEq += (planCounts[mId] - (actualCounts[mId] || 0));
+                }
             }
-        }
-    });
-    // === /СЧЕТЧИК НЕ ХВАТАЮЩЕГО ОБОРУДОВАНИЯ ===
+        });
 
-    document.getElementById("statPaid").textContent=fmt(tp);
-    var de=document.getElementById("statDebt");
-    de.textContent=td>0.01?fmt(td):(td<-0.01?"−"+fmt(Math.abs(td)):"0 ₽");
-    de.style.color=td>0.01?"var(--red)":(td<-0.01?"var(--purple-dark)":"var(--green)");
-    renderStatsCards();
-    renderTopDebtors();
-    normalizeTooltips();
+        document.getElementById("statPaid").textContent=fmt(tp);
+        var de=document.getElementById("statDebt");
+        de.textContent=td>0.01?fmt(td):(td<-0.01?"−"+fmt(Math.abs(td)):"0 ₽");
+        de.style.color=td>0.01?"var(--red)":(td<-0.01?"var(--purple-dark)":"var(--green)");
+        renderStatsCards();
+        renderTopDebtors();
+        normalizeTooltips();
     }
 
     window.showGlobalMissingEq = function() {
@@ -3959,10 +4109,31 @@ if (typeof define === 'function' && define.amd) {
     saveToStorage();renderPoints();renderInstances();renderFleet();
     }}
     else if(a==="inst")openSelectInstances(i);
+    else if(a==="audit") {
+        var sel = document.getElementById("auditPointSelect");
+        sel.innerHTML = "";
+        data.forEach(function(p, idx) { sel.innerHTML += '<option value="' + idx + '">' + esc(p.name) + '</option>'; });
+        
+        sel.value = i;
+        
+        // Меняем заголовок окна
+        document.getElementById("auditModalTitle").textContent = "Инвентаризация: " + data[i].name;
+        
+        document.getElementById("auditPointSelectWrapper").style.display = "none"; 
+        
+        renderAuditItems();
+        document.getElementById('auditModal').classList.add('active');
+    }
+    else if(a==="service") {
+        // Заглушка для будущего модуля ТО
+        if (typeof showScannerToast === 'function') showScannerToast("✅ Модуль «Обслуживание» появится в v6.7!", true);
+        else alert("✅ Модуль «Обслуживание» появится в будущих версиях!");
+    }
     else if(a==="act"){document.getElementById("printArea").innerHTML=buildAct(i);setTimeout(function(){window.print();},100);}
     else if(a==="doc"){generateDocument(i);}
     else if(a==="return"){openReturnModal(i);}
     else if(a==="cal"){downloadICSForPoint(i);}
+
     });
     
     function renderModels(){
@@ -6263,12 +6434,17 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
     });
     
     document.getElementById("btnStartAudit").addEventListener("click",function(){
-    if(!data.length){alert("Нет точек");return;}
-    editAuditId = null; // Сброс при создании новой
-    var sel=document.getElementById("auditPointSelect");sel.innerHTML="";
-    data.forEach(function(p,i){sel.innerHTML+='<option value="'+i+'">'+esc(p.name)+'</option>';});
-    renderAuditItems();
-    document.getElementById("auditModal").classList.add("active");
+        if(!data.length){alert("Нет точек");return;}
+        editAuditId = null;
+        var sel=document.getElementById("auditPointSelect");
+        sel.innerHTML="";
+        data.forEach(function(p,i){sel.innerHTML+='<option value="'+i+'">'+esc(p.name)+'</option>';});
+        
+        // ВОЗВРАЩАЕМ выпадающий список на место, чтобы можно было выбрать точку вручную
+        document.getElementById("auditPointSelectWrapper").style.display = "block"; 
+        
+        renderAuditItems();
+        document.getElementById("auditModal").classList.add("active");
     });
     document.getElementById("auditPointSelect").addEventListener("change",renderAuditItems);
     document.getElementById("auditCancel").addEventListener("click",function(){
@@ -6282,15 +6458,12 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
         if(!p) return;
         
         var oldResults = {};
-        var equipmentToRender = p.equipmentList || []; // По умолчанию берем текущий список
+        var equipmentToRender = p.equipmentList || []; 
 
         if (editAuditId) {
             var oldAudit = audits.find(function(x){ return x.id === editAuditId; });
             if (oldAudit) {
-                // Если редактируем, показываем ИСХОДНЫЙ список оборудования
-                if (oldAudit.originalEquipmentList) {
-                    equipmentToRender = oldAudit.originalEquipmentList;
-                }
+                if (oldAudit.originalEquipmentList) equipmentToRender = oldAudit.originalEquipmentList;
                 (oldAudit.items || []).forEach(function(r){ oldResults[r.instId] = r; });
             }
         }
@@ -6303,23 +6476,38 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
         var repairLocs = locations.filter(function(l){return l.type === "repair";});
         var locOptions = repairLocs.map(function(l){ return '<option value="'+l.id+'">'+esc(l.name)+'</option>'; }).join("");
 
-        var h='<table style="width:100%;border-collapse:collapse;font-size:13px"><tr><th>Модель</th><th>SN / SKU</th><th>Статус</th><th>Куда (если сломано)</th></tr>';
+        var h='<table style="width:100%;border-collapse:collapse;font-size:13px"><tr><th>Модель</th><th>SN / SKU</th><th>Действие</th><th>Детали (если сломано)</th></tr>';
+        
         equipmentToRender.forEach(function(instId){
             var inst=getInstance(instId);if(!inst)return;
             var m=getModel(inst.modelId);
             
-            var savedResult = oldResults[instId] ? oldResults[instId].result : "ok";
+            var savedResult = oldResults[instId] ? oldResults[instId].result : "unchecked";
+            document.getElementById("auditModalTitle").textContent = "Инвентаризация: " + p.name;
             var savedLocId = oldResults[instId] ? oldResults[instId].locationId : "";
+            var savedComment = oldResults[instId] ? oldResults[instId].comment || "" : "";
 
-            var selOk = savedResult === "ok" ? " selected" : "";
-            var selBr = savedResult === "broken" ? " selected" : "";
-            var selLs = savedResult === "lost" ? " selected" : "";
-
+            var bg = "";
+            if (savedResult === "ok") bg = "background:rgba(46, 125, 50, 0.15);";
+            else if (savedResult === "broken") bg = "background:rgba(239, 108, 0, 0.15);";
+            else if (savedResult === "lost") bg = "background:rgba(229, 57, 53, 0.15);";
+            else bg = "background:transparent;"; // Серый/прозрачный для непроверенных
             var displayStyle = savedResult === "broken" ? "flex" : "none";
             
-            h+='<tr data-inst="'+inst.id+'"><td>'+esc(m?m.name:"—")+'</td><td>'+esc(inst.sn||"")+' / '+esc(inst.sku||"")+'</td>'
-            +'<td><select class="audit-status" style="padding:4px" onchange="var row=this.closest(\'tr\'); row.querySelector(\'.audit-repair-loc\').style.display = this.value === \'broken\' ? \'inline-block\' : \'none\';"><option value="ok"'+selOk+'>На месте</option><option value="broken"'+selBr+'>Сломано</option><option value="lost"'+selLs+'>Недостача</option></select></td>'
-            +'<td><select class="audit-repair-loc" style="padding:4px; display:'+displayStyle+'"><option value="">— Выбрать —</option>'+locOptions+'</select></td></tr>';
+            h+='<tr data-inst="'+inst.id+'" data-result="'+savedResult+'" style="'+bg+' border-bottom:1px solid var(--border-light); transition: background 0.3s;">'
+            +'<td style="padding:8px;">'+esc(m?m.name:"—")+'</td>'
+            +'<td style="padding:8px;">'+esc(inst.sn||"")+' / '+esc(inst.sku||"")+'</td>'
+            +'<td style="padding:8px;">'
+            +'<div class="audit-btns">'
+            +'<button type="button" class="pay small" style="opacity:'+(savedResult==='ok'?'1':'0.4')+'" onclick="setAuditRowStatus(this, \'ok\')">✅ На месте</button> '
+            +'<button type="button" class="edit small" style="opacity:'+(savedResult==='broken'?'1':'0.4')+'" onclick="setAuditRowStatus(this, \'broken\')">🛠 В ремонт</button> '
+            +'<button type="button" class="danger small" style="opacity:'+(savedResult==='lost'?'1':'0.4')+'" onclick="setAuditRowStatus(this, \'lost\')">❌ Потеряно</button>'
+            +'</div>'
+            +'</td>'
+            +'<td class="audit-repair-loc" style="padding:8px; display:'+displayStyle+'; flex-direction:column; gap:5px;">'
+            +'<select style="padding:4px; font-size:12px;"><option value="">— Мастер —</option>'+locOptions+'</select>'
+            +'<input type="text" class="audit-comment" placeholder="Комментарий мастеру" value="'+esc(savedComment)+'" style="padding:4px; font-size:12px;">'
+            +'</td></tr>';
         });
         h+='</table>';
         container.innerHTML=h;
@@ -6328,16 +6516,73 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
             document.querySelectorAll("#auditItems tr[data-inst]").forEach(function(row){
                 var instId = row.dataset.inst;
                 if (oldResults[instId] && oldResults[instId].locationId) {
-                    row.querySelector(".audit-repair-loc").value = oldResults[instId].locationId;
+                    row.querySelector(".audit-repair-loc select").value = oldResults[instId].locationId;
                 }
             });
         }
     }
 
+    // Функция изменения цвета и статуса строки
+    window.setAuditRowStatus = function(btn, status) {
+        var row = btn.closest('tr');
+        row.dataset.result = status;
+        
+        // Сброс стилей кнопок
+        var btns = row.querySelectorAll('.audit-btns button');
+        btns.forEach(function(b){ b.style.opacity = "0.4"; });
+        btn.style.opacity = "1";
+
+        // Меняем цвет фона
+        if (status === 'ok') {
+            row.style.background = "rgba(46, 125, 50, 0.15)";
+            row.querySelector('.audit-repair-loc').style.display = "none";
+        } else if (status === 'broken') {
+            row.style.background = "rgba(239, 108, 0, 0.15)";
+            row.querySelector('.audit-repair-loc').style.display = "flex";
+        } else if (status === 'lost') {
+            row.style.background = "rgba(229, 57, 53, 0.15)";
+            row.querySelector('.audit-repair-loc').style.display = "none";
+        }
+    };
+
     document.getElementById("auditSaveBtn").addEventListener("click",function(){
         var idx=parseInt(document.getElementById("auditPointSelect").value,10);
         var p=data[idx];if(!p)return;
         
+        // --- ПРОВЕРКА НА НЕОТМЕЧЕННЫЕ ПРИБОРЫ ---
+        var rows = document.querySelectorAll("#auditItems tr[data-inst]");
+        var uncheckedCount = 0;
+        rows.forEach(function(row) {
+            if (!row.dataset.result || row.dataset.result === "unchecked") {
+                uncheckedCount++;
+            }
+        });
+
+        if (uncheckedCount > 0) {
+            // Показываем красивое окно
+            document.getElementById("missingItemsCount").textContent = uncheckedCount;
+            document.getElementById("confirmMissingModal").classList.add("active");
+            
+            // Кнопка "Поищу еще" - просто закрывает окно
+            document.getElementById("btnSearchMore").onclick = function() {
+                document.getElementById("confirmMissingModal").classList.remove("active");
+            };
+            
+            // Кнопка "Это недостача" - запускает сохранение
+            document.getElementById("btnMarkLost").onclick = function() {
+                document.getElementById("confirmMissingModal").classList.remove("active");
+                executeAuditSave(idx, p); // Вызываем функцию сохранения
+            };
+            
+            return; // Останавливаем выполнение, ждем нажатия кнопки в окне
+        }
+        
+        // Если все отмечены, сохраняем сразу
+        executeAuditSave(idx, p);
+    });
+
+    // Функция, которая выполняет всю грязную работу по сохранению
+    function executeAuditSave(idx, p) {
         if (editAuditId) {
             var oldAudit = audits.find(function(x){return x.id === editAuditId;});
             if (oldAudit && oldAudit.originalEquipmentList) {
@@ -6346,43 +6591,53 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
         }
 
         var originalList = (p.equipmentList || []).slice();
-
-        var rows=document.querySelectorAll("#auditItems tr[data-inst]");
-        var results=[],problems=0;
-        var keepIds=[];
-        var wh=locations.find(function(l){return l.type==="warehouse";});
+        var rows = document.querySelectorAll("#auditItems tr[data-inst]");
+        var results = [], problems = 0;
+        var keepIds = [];
         
         rows.forEach(function(row){
-            var instId=row.dataset.inst;
-            var result=row.querySelector(".audit-status").value;
-            var locId=row.querySelector(".audit-repair-loc").value;
-            var inst=getInstance(instId);if(!inst)return;
+            var instId = row.dataset.inst;
+            var result = row.dataset.result;
             
-            results.push({instId:instId,result:result,locationId:locId});
+            // Если прибор не тронули, но нажали "Это недостача" -> уходит в lost
+            if (!result || result === "unchecked") {
+                result = "lost"; 
+            }
+
+            var locSelect = row.querySelector(".audit-repair-loc select");
+            var locId = locSelect ? locSelect.value : "";
+            var commentInput = row.querySelector(".audit-comment");
+            var comment = commentInput ? commentInput.value.trim() : "";
             
-            if(result==="ok"){
+            var inst = getInstance(instId); if(!inst) return;
+            
+            results.push({instId:instId, result:result, locationId:locId, comment:comment});
+            
+            if (result === "ok") {
                 keepIds.push(instId);
-                // ВОЗВРАЩАЕМ СТАТУС ПРИБОРА НА МЕСТО
                 inst.status = "in_point";
                 inst.pointId = idx;
                 inst.locationId = null;
                 inst.condition = "ok";
-        
-            }else{
+            } else {
                 problems++;
-                if(result==="broken"){
-                    inst.status="in_repair";
-                    inst.pointId=null;
-                    inst.locationId=locId || (locations.find(function(l){return l.type==="repair";}) ? locations.find(function(l){return l.type==="repair";}).id : null);
-                    inst.condition="broken";
+                if (result === "broken") {
+                    inst.status = "in_repair";
+                    inst.pointId = null;
+                    inst.locationId = locId || (locations.find(function(l){return l.type==="repair";}) ? locations.find(function(l){return l.type==="repair";}).id : null);
+                    inst.condition = "broken";
+                    inst.note = comment;
                 }
-                else if(result==="lost"){
-                    inst.status="lost";inst.pointId=null;inst.locationId=null;
+                else if (result === "lost") {
+                    inst.status = "lost"; 
+                    inst.pointId = null; 
+                    inst.locationId = null;
+                    inst.note = comment;
                 }
             }
         });
         
-        p.equipmentList=keepIds;
+        p.equipmentList = keepIds;
 
         if (editAuditId) {
             var auditObj = audits.find(function(x){return x.id === editAuditId;});
@@ -6391,15 +6646,15 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
                 auditObj.items = results;
             }
         } else {
-            audits.unshift({id:genId(),date:today(),pointName:p.name,pointId:p.id,items:results,originalEquipmentList:originalList});
+            audits.unshift({id:genId(), date:today(), pointName:p.name, pointId:p.id, items:results, originalEquipmentList:originalList});
         }
         
         saveToStorage();
         document.getElementById("auditModal").classList.remove("active");
         editAuditId = null;
-        renderPoints();renderInstances();renderFleet();renderAudits();
-        alert("Проверка сохранена. Расхождений: "+problems);
-    });
+        renderPoints(); renderInstances(); renderFleet(); renderAudits();
+        alert("Проверка сохранена. Расхождений: " + problems);
+    }
 
     window.printAudit=function(id){
         var a=audits.find(function(x){return x.id===id;});if(!a)return;
@@ -6988,41 +7243,86 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
     alert("Все данные успешно удалены.");
     });
     
-    document.getElementById("setupConnectBtnTab").addEventListener("click",async function(){
-    var t=document.getElementById("setupTokenTab").value.trim();
-    var g=document.getElementById("setupGistIdTab").value.trim();
-    if(!t||!g){document.getElementById("setupMsgTab").textContent="Заполните оба поля";return;}
-    document.getElementById("setupMsgTab").textContent="";this.disabled=true;
-    var oT=ghToken,oG=ghGistId;ghToken=t;ghGistId=g;
-    try{
-    var remote=await ghLoad();
-    if(!confirm("Загрузить данные с GitHub? Текущие локальные данные будут заменены.")){ghToken=oT;ghGistId=oG;return;}
-    localStorage.setItem(TOKEN_KEY,t);localStorage.setItem(GIST_KEY,g);
-        models=remote.models;instances=remote.instances;data=remote.data;locations=remote.locations;audits=remote.audits;clients=remote.clients||[];landlords=remote.landlords||[];templates=remote.templates||[];dmxTooltips=remote.dmxTooltips||{};
-    if(remote.labelDesign) labelDesign = remote.labelDesign;
-    if(remote.catTree) { CAT_TREE = remote.catTree; saveCatTree(); }
-    if(remote.cardOrder) { cardOrder = remote.cardOrder; localStorage.setItem("rent_card_order_v5", JSON.stringify(cardOrder)); }
-    if(remote.policy) { postpayment = (remote.policy==="postpay"); localStorage.setItem(POLICY_KEY, postpayment?"postpay":"prepay"); updatePolicyBtn(); }
-    saveToStorage();renderPoints();renderModels();renderInstances();renderFleet();renderAudits();switchTab("tab-points");
-    setSync("ok",new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
-    }catch(e){ghToken=oT;ghGistId=oG;document.getElementById("setupMsgTab").textContent=e.message;}
-    finally{this.disabled=false;}
+    document.getElementById("setupConnectBtnTab").addEventListener("click", async function(){
+        var t = document.getElementById("setupTokenTab").value.trim();
+        var g = document.getElementById("setupGistIdTab").value.trim();
+        if (!t || !g) {
+            document.getElementById("setupMsgTab").textContent = "Заполните оба поля";
+            return;
+        }
+        
+        document.getElementById("setupMsgTab").textContent = "";
+        this.disabled = true;
+        
+        try {
+            // Используем новую функцию apiLoad
+            var remote = await apiLoad(t, g);
+            
+            if (!confirm("Загрузить данные с GitHub? Текущие локальные данные будут заменены.")) {
+                this.disabled = false;
+                return;
+            }
+            
+            // Сохраняем настройки только при успешном подключении
+            ghToken = t; 
+            ghGistId = g;
+            localStorage.setItem(TOKEN_KEY, t);
+            localStorage.setItem(GIST_KEY, g);
+            
+            models = remote.models; instances = remote.instances; data = remote.data; locations = remote.locations; audits = remote.audits; 
+            clients = remote.clients || []; landlords = remote.landlords || []; templates = remote.templates || []; dmxTooltips = remote.dmxTooltips || {};
+            if (remote.labelDesign) labelDesign = remote.labelDesign;
+            if (remote.catTree) { CAT_TREE = remote.catTree; saveCatTree(); }
+            if (remote.cardOrder) { cardOrder = remote.cardOrder; localStorage.setItem("rent_card_order_v5", JSON.stringify(cardOrder)); }
+            if (remote.policy) { postpayment = (remote.policy==="postpay"); localStorage.setItem(POLICY_KEY, postpayment?"postpay":"prepay"); updatePolicyBtn(); }
+            
+            saveToStorage(); 
+            renderPoints(); renderModels(); renderInstances(); renderFleet(); renderAudits(); 
+            switchTab("tab-points");
+            setSync("ok", new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
+            
+        } catch(e) {
+            document.getElementById("setupMsgTab").textContent = e.message;
+        } finally {
+            this.disabled = false;
+        }
     });
     document.getElementById("refreshBtn").addEventListener("click",async function(){
-    if(!isConf()){switchTab("tab-settings");return;}
-    if(!confirm("Загрузить с GitHub? Несохранённые изменения потеряются."))return;
-    this.disabled=true;setSync("loading");
-    try{
-    var remote=await ghLoad();
-        models=remote.models;instances=remote.instances;data=remote.data;locations=remote.locations;audits=remote.audits;clients=remote.clients||[];landlords=remote.landlords||[];templates=remote.templates||[];dmxTooltips=remote.dmxTooltips||{};
-    if(remote.labelDesign) labelDesign = remote.labelDesign;
-    if(remote.catTree) { CAT_TREE = remote.catTree; saveCatTree(); }
-    if(remote.cardOrder) { cardOrder = remote.cardOrder; localStorage.setItem("rent_card_order_v5", JSON.stringify(cardOrder)); }
-    if(remote.policy) { postpayment = (remote.policy==="postpay"); localStorage.setItem(POLICY_KEY, postpayment?"postpay":"prepay"); updatePolicyBtn(); }
-    saveToStorage();renderPoints();renderModels();renderInstances();renderFleet();renderAudits();
-    setSync("ok",new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
-    }catch(e){setSync("error",e.message);alert("Ошибка: "+e.message);}
-    finally{this.disabled=false;}
+        if (currentRole === "admin" && (!ghToken || !ghGistId)) {
+            switchTab("tab-settings");
+            return;
+        }
+        if (currentRole === "tech" && (!ghTechToken || !ghTechGistId)) {
+            alert("Нет подключения к GitHub. Обратитесь к Администратору для настройки синхронизации.");
+            return;
+        }
+        
+        if(!confirm("Загрузить данные с сервера? Несохранённые изменения потеряются.")) return;
+        
+        this.disabled=true; setSync("loading");
+        try{
+            var remote;
+            if (currentRole === "admin") {
+                remote = await apiLoad(ghToken, ghGistId);
+            } else {
+                remote = await apiLoad(ghTechToken, ghTechGistId);
+            }
+            
+            models=remote.models; instances=remote.instances; data=remote.data; locations=remote.locations; audits=remote.audits; 
+            clients=remote.clients||[]; landlords=remote.landlords||[]; templates=remote.templates||[]; dmxTooltips=remote.dmxTooltips||{};
+            if(remote.labelDesign) labelDesign = remote.labelDesign;
+            if(remote.catTree) { CAT_TREE = remote.catTree; saveCatTree(); }
+            if(remote.cardOrder) { cardOrder = remote.cardOrder; localStorage.setItem("rent_card_order_v5", JSON.stringify(cardOrder)); }
+            if(remote.policy) { postpayment = (remote.policy==="postpay"); localStorage.setItem(POLICY_KEY, postpayment?"postpay":"prepay"); updatePolicyBtn(); }
+            
+            saveToStorage(); renderPoints(); renderModels(); renderInstances(); renderFleet(); renderAudits();
+            setSync("ok",new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
+        } catch(e) {
+            if (currentRole === "admin") setSync("error",e.message); else setTechSync("error",e.message);
+            alert("Ошибка: "+e.message);
+        } finally {
+            this.disabled=false;
+        }
     });
     
     function loadFromCache(){
@@ -7068,6 +7368,8 @@ data.push({id:genId(),name:name,rent:rent,startDate:sd,endDate:ed,payDay:payDay,
     document.getElementById("postpayCheckTab").checked=postpayment;
     document.getElementById("setupTokenTab").value=ghToken;
     document.getElementById("setupGistIdTab").value=ghGistId;
+    document.getElementById("setupTechToken").value=ghTechToken;
+    document.getElementById("setupTechGistId").value=ghTechGistId;
     updatePolicyBtn();
     
     loadFromCache();
@@ -7107,22 +7409,53 @@ if (_migrated) saveToStorage();
     renderPoints();renderModels();renderInstances();renderFleet();renderAudits();renderRepairs();renderPlacement();
     fillClientsSelect("pointClientId", "");
     
-    if(isConf()){
-    setSync("loading");
-    ghLoad().then(function(remote){
-            models=remote.models;instances=remote.instances;data=remote.data;locations=remote.locations;audits=remote.audits;clients=remote.clients||[];landlords=remote.landlords||[];templates=remote.templates||[];dmxTooltips=remote.dmxTooltips||{};
-    if(remote.labelDesign) labelDesign = remote.labelDesign;
-    if(remote.catTree) { CAT_TREE = remote.catTree; saveCatTree(); }
-    if(remote.cardOrder) { cardOrder = remote.cardOrder; localStorage.setItem("rent_card_order_v5", JSON.stringify(cardOrder)); }
-    if(remote.policy) { postpayment = (remote.policy==="postpay"); localStorage.setItem(POLICY_KEY, postpayment?"postpay":"prepay"); updatePolicyBtn(); }
-    saveToStorage();renderPoints();renderModels();renderInstances();renderFleet();renderAudits();
-    setSync("ok",new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
-    }).catch(function(e){
-    setSync("error",e.message+" — локальные");
-    });
-    }else{
-    setSync("offline");
-    }
+            // === ЗАГРУЗКА ДАННЫХ ПРИ СТАРТЕ (ЗАВИСИТ ОТ РОЛИ) ===
+            if (currentRole === "admin") {
+            // --- АДМИН ---
+            if (ghToken && ghGistId) {
+                setSync("loading");
+                apiLoad(ghToken, ghGistId).then(function(remote){
+                    models=remote.models; instances=remote.instances; data=remote.data; locations=remote.locations; audits=remote.audits; clients=remote.clients||[]; landlords=remote.landlords||[]; templates=remote.templates||[]; dmxTooltips=remote.dmxTooltips||{};
+                    if(remote.labelDesign) labelDesign = remote.labelDesign;
+                    if(remote.catTree) { CAT_TREE = remote.catTree; saveCatTree(); }
+                    if(remote.cardOrder) { cardOrder = remote.cardOrder; localStorage.setItem("rent_card_order_v5", JSON.stringify(cardOrder)); }
+                    if(remote.policy) { postpayment = (remote.policy==="postpay"); localStorage.setItem(POLICY_KEY, postpayment?"postpay":"prepay"); updatePolicyBtn(); }
+                    saveToStorage(); renderPoints(); renderModels(); renderInstances(); renderFleet(); renderAudits();
+                    setSync("ok", new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
+                }).catch(function(e){
+                    setSync("error", e.message + " — локальные");
+                });
+            } else {
+                setSync("offline");
+            }
+
+            // Проверка статуса Технического Gist для Админа
+            if (ghTechToken && ghTechGistId) {
+                setTechSync("ok", "Настроен");
+            } else {
+                setTechSync("offline");
+            }
+
+        } else {
+            // --- ТЕХНИК ---
+            if (ghTechToken && ghTechGistId) {
+                setTechSync("loading");
+                apiLoad(ghTechToken, ghTechGistId).then(function(remote){
+                    models=remote.models; instances=remote.instances; data=remote.data; locations=remote.locations; audits=remote.audits; 
+                    dmxTooltips=remote.dmxTooltips||{};
+                    if(remote.labelDesign) labelDesign = remote.labelDesign;
+                    if(remote.catTree) { CAT_TREE = remote.catTree; saveCatTree(); }
+                    if(remote.cardOrder) { cardOrder = remote.cardOrder; localStorage.setItem("rent_card_order_v5", JSON.stringify(cardOrder)); }
+                    
+                    saveToStorage(); renderPoints(); renderModels(); renderInstances(); renderFleet(); renderAudits();
+                    setTechSync("ok", new Date().toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}));
+                }).catch(function(e){
+                    setTechSync("error", e.message + " — локальные");
+                });
+            } else {
+                setTechSync("offline");
+            }
+        }
     updateLabelReminders();
 }
     function renderCatManager() {
@@ -8628,118 +8961,93 @@ function showScannerToast(text, isSuccess) {
 }
 
 // --- Обработка отсканированного кода ---
-function handleScannedCode(code) {
-    code = code.trim().toUpperCase();
-    if (!code) return;
 
-    var inst = instances.find(function(i) { 
-        return (i.sku && i.sku.toUpperCase() === code) || 
-               (i.sn && i.sn.toUpperCase() === code); 
-    });
+    function handleScannedCode(code) {
+        code = code.trim().toUpperCase();
+        if (!code) return;
 
-    if (!inst) {
-        playBeep(false);
-        showScannerToast("❌ Не найдено: " + code, false);
-        return;
-    }
+        var inst = instances.find(function(i) { 
+            return (i.sku && i.sku.toUpperCase() === code) || 
+                   (i.sn && i.sn.toUpperCase() === code); 
+        });
 
-    // === ЛОГИКА СЦЕНАРИЕВ ХАБА ===
-    if (window.currentScanMode === 'locate') {
-        var loc = "";
-        if (inst.status === "in_point" && data[inst.pointId]) loc = "📍 В точке: " + data[inst.pointId].name;
-        else if (inst.status === "in_repair") loc = "🛠 В ремонте: " + (getLocation(inst.locationId) ? getLocation(inst.locationId).name : "мастер");
-        else if (inst.status === "available") loc = "🏢 На складе: " + (getLocation(inst.locationId) ? getLocation(inst.locationId).name : "не указан");
-        else loc = "Статус: " + inst.status;
-
-        showScannerToast("🔍 " + (inst.sku || inst.sn) + " — " + loc, true);
-        window.currentScanMode = 'card'; // Сбрасываем после использования
-        return;
-    }
-
-    if (window.currentScanMode === 'assemble') {
-        var cb = document.querySelector('#selectInstList input[data-inst="' + inst.id + '"]');
-        if (cb) {
-            cb.checked = true;
-            cb.closest('label').style.background = "var(--ok-bg)";
-            showScannerToast("✅ Добавлен: " + (inst.sku || inst.sn), true);
-        } else {
-            showScannerToast("⚠️ Прибор недоступен для этой точки", false);
+        if (!inst) {
+            playBeep(false);
+            showScannerToast("❌ Не найдено: " + code, false);
+            return;
         }
-        return;
-    }
 
-    if (window.currentScanMode === 'audit') {
-        var row = document.querySelector('#auditItems tr[data-inst="' + inst.id + '"]');
-        if (row) {
-            var select = row.querySelector(".audit-status");
-            if (select) {
-                select.value = "ok";
-                select.dispatchEvent(new Event('change'));
-                row.style.background = "var(--ok-bg)"; 
-                setTimeout(function(){ row.style.background = ""; }, 1000);
-                showScannerToast("✅ Отмечено: " + (inst.sku || inst.sn), true);
-            }
-        } else {
-            showScannerToast("⚠️ Прибора нет в списке этой точки", false);
-        }
-        return;
-    }
-
-    // Если режим 'card' или обычный - открываем карточку
-    // ... (остальной старый код с проверкой auditModal и selectInstModal) ...
-
-    // Проверяем: может мы в режиме инвентаризации?
-    var auditModal = document.getElementById("auditModal");
-    if (auditModal && auditModal.classList.contains("active")) {
-        var row = document.querySelector('#auditItems tr[data-inst="' + inst.id + '"]');
-        if (row) {
-            var select = row.querySelector(".audit-status");
-            if (select) {
-                select.value = "ok";
-                select.dispatchEvent(new Event('change'));
-                row.style.background = "var(--ok-bg)"; 
-                setTimeout(function(){ row.style.background = ""; }, 1000);
+        // 1. ПРИОРИТЕТ: ИНВЕНТАРИЗАЦИЯ (если открыто окно)
+        if (document.getElementById("auditModal") && document.getElementById("auditModal").classList.contains("active")) {
+            var row = document.querySelector('#auditItems tr[data-inst="' + inst.id + '"]');
+            if (row) {
+                row.scrollIntoView({behavior: "smooth", block: "center"});
+                
+                var okBtn = row.querySelector('.audit-btns button.pay');
+                if (okBtn) setAuditRowStatus(okBtn, 'ok');
+                
                 playBeep(true);
                 showScannerToast("✅ Отмечено: " + (inst.sku || inst.sn), true);
             } else {
                 playBeep(false);
-                showScannerToast("⚠️ Прибор не в этой точке!", false);
+                showScannerToast("⚠️ Прибора нет в списке этой точки", false);
             }
-        } else {
-            playBeep(false);
-            showScannerToast("⚠️ Прибора нет в списке этой точки", false);
+            return; // Выходим, чтобы не сработали другие режимы
         }
-        return;
-    }
 
-    // Если мы в режиме выбора экземпляров для точки (📦)
-    var selectModal = document.getElementById("selectInstModal");
-    if (selectModal && selectModal.classList.contains("active")) {
-        var cb = document.querySelector('#selectInstList input[data-inst="' + inst.id + '"]');
-        if (cb) {
-            cb.checked = !cb.checked;
-            if (cb.checked) cb.closest('label').style.background = "var(--ok-bg)";
-            else cb.closest('label').style.background = "";
-            
-            playBeep(true);
-            showScannerToast((cb.checked ? "✅ Добавлен: " : "➖ Убран: ") + (inst.sku || inst.sn), true);
-        } else {
-            playBeep(false);
-            showScannerToast("⚠️ Прибор недоступен для этой точки", false);
+        // 2. РЕЖИМ "ГДЕ ЛЕЖИТ" (locate)
+        if (window.currentScanMode === 'locate') {
+            var loc = "";
+            if (inst.status === "in_point" && data[inst.pointId]) loc = "📍 В точке: " + data[inst.pointId].name;
+            else if (inst.status === "in_repair") loc = "🛠 В ремонте: " + (getLocation(inst.locationId) ? getLocation(inst.locationId).name : "мастер");
+            else if (inst.status === "available") loc = "🏢 На складе: " + (getLocation(inst.locationId) ? getLocation(inst.locationId).name : "не указан");
+            else loc = "Статус: " + inst.status;
+
+            showScannerToast("🔍 " + (inst.sku || inst.sn) + " — " + loc, true);
+            window.currentScanMode = 'card'; // Сбрасываем после использования
+            return;
         }
-        return;
-    }
 
-    // Обычный режим (просто открываем карточку)
-    playBeep(true);
-    showScannerToast("🔍 Найдено: " + (inst.sku || inst.sn), true);
-    
-    document.querySelectorAll('.modal-bg').forEach(function(m){ m.classList.remove('active'); });
-    if (typeof openInstanceEdit === 'function') {
-        openInstanceEdit(inst.id);
-    }
-}
+        // 3. РЕЖИМ СБОРКИ (assemble)
+        if (window.currentScanMode === 'assemble') {
+            var cb = document.querySelector('#selectInstList input[data-inst="' + inst.id + '"]');
+            if (cb) {
+                cb.checked = true;
+                cb.closest('label').style.background = "var(--ok-bg)";
+                showScannerToast("✅ Добавлен: " + (inst.sku || inst.sn), true);
+            } else {
+                showScannerToast("⚠️ Прибор недоступен для этой точки", false);
+            }
+            return;
+        }
 
+        // 4. ЕСЛИ ОТКРЫТО ОКНО ВЫБОРА ЭКЗЕМПЛЯРОВ (📦)
+        var selectModal = document.getElementById("selectInstModal");
+        if (selectModal && selectModal.classList.contains("active")) {
+            var cb = document.querySelector('#selectInstList input[data-inst="' + inst.id + '"]');
+            if (cb) {
+                cb.checked = !cb.checked;
+                if (cb.checked) cb.closest('label').style.background = "var(--ok-bg)";
+                else cb.closest('label').style.background = "";
+                
+                playBeep(true);
+                showScannerToast((cb.checked ? "✅ Добавлен: " : "➖ Убран: ") + (inst.sku || inst.sn), true);
+            } else {
+                playBeep(false);
+                showScannerToast("⚠️ Прибор недоступен для этой точки", false);
+            }
+            return;
+        }
+
+        // 5. ОБЫЧНЫЙ РЕЖИМ (ОТКРЫВАЕМ КАРТОЧКУ)
+        playBeep(true);
+        showScannerToast("🔍 Найдено: " + (inst.sku || inst.sn), true);
+        
+        document.querySelectorAll('.modal-bg').forEach(function(m){ m.classList.remove('active'); });
+        if (typeof openInstanceEdit === 'function') {
+            openInstanceEdit(inst.id);
+        }
+    }
 // --- Глобальный перехват ввода ---
 document.addEventListener("keydown", function(e) {
     var tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
@@ -8901,8 +9209,9 @@ window.startCameraScanner = function() {
                 });
 
                 if (code) {
-                    // Если мы в режиме сборки или проверки - не закрываем камеру
-                    var keepOpen = (currentScanMode === 'assemble' || currentScanMode === 'audit');
+                    // Проверяем, открыто ли окно инвентаризации
+                    var isAudit = document.getElementById("auditModal") && document.getElementById("auditModal").classList.contains("active");
+                    var keepOpen = isAudit || (currentScanMode === 'assemble' || currentScanMode === 'audit');
                     
                     if (!keepOpen) {
                         stopCameraScanner();
@@ -8914,10 +9223,10 @@ window.startCameraScanner = function() {
                     }
                     
                     if (keepOpen) {
-                        // Небольшая пауза, чтобы не сканировать один и тот же код 100 раз в секунду
+                        // Даем 1.5 секунды, чтобы прочитать сообщение и навести на следующий код
                         setTimeout(function() {
                             if (cameraScanning) requestAnimationFrame(tick);
-                        }, 1000);
+                        }, 1500);
                     }
                     return;
                 }
@@ -9256,6 +9565,19 @@ function applyRoleUI() {
     document.querySelectorAll(".user-info .sync-status").forEach(function(b){
         if (b.textContent.indexOf("Сканер") >= 0) b.style.display = isTech ? "none" : "";
     });
+    // Индикаторы синхронизации
+    var masterInd = document.getElementById("syncStatus");
+    var techInd = document.getElementById("techSyncStatus");
+    
+    if (isTech) {
+        // Техник видит только свой индикатор
+        if (masterInd) masterInd.style.display = "none";
+        if (techInd) techInd.style.display = "";
+    } else {
+        // Админ видит оба
+        if (masterInd) masterInd.style.display = "";
+        if (techInd) techInd.style.display = "";
+    }
 
     // Кнопка "Сменить роль" — только Админ
     var existing = document.getElementById("switchRoleBtn");
@@ -9422,9 +9744,50 @@ window.changeTechPin = function() {
 // ============================================================
 // ==== /МОДУЛЬ РОЛЕЙ ====
 // ============================================================
+
+    // === СОХРАНЕНИЕ НАСТРОЕК ТЕХНИЧЕСКОГО GIST ===
+    document.getElementById("setupConnectTechBtn").addEventListener("click", function() {
+        var t = document.getElementById("setupTechToken").value.trim();
+        var g = document.getElementById("setupTechGistId").value.trim();
+        
+        if (!t || !g) {
+            document.getElementById("setupTechMsg").textContent = "Заполните оба поля";
+            return;
+        }
+        
+        localStorage.setItem(T_TOKEN_KEY, t);
+        localStorage.setItem(T_GIST_KEY, g);
+        ghTechToken = t;
+        ghTechGistId = g;
+        
+        document.getElementById("setupTechMsg").style.color = "var(--green)";
+        document.getElementById("setupTechMsg").textContent = "✅ Настройки Техника сохранены!";
+        setTimeout(function(){ document.getElementById("setupTechMsg").textContent = ""; }, 3000);
+        
+        if (typeof showScannerToast === "function") {
+            showScannerToast("✅ Технический Gist подключен", true);
+        }
+    });
+
     init();
     })();
     </script>
+
+    <!-- МОДАЛКА НЕДОСТАЧИ -->
+<div class="modal-bg" id="confirmMissingModal" style="z-index:3000">
+    <div class="modal" style="max-width:450px;text-align:center">
+        <h3 style="color:var(--red); margin-bottom:15px;">⚠️ Стоп, мы кое-что забыли!</h3>
+        <p style="font-size:15px; margin-bottom:25px; line-height:1.5;">
+            Мы пропустили <b id="missingItemsCount" style="color:var(--red); font-size:18px;">0</b> прибор(ов).<br><br>
+            Если их нет даже в туалете — жми «Это недостача», <b>главный разберётся.</b><br><br>
+            <span style="color:var(--text-muted); font-size:13px;">Поищи ещё, если нашёл — просто закрой это окно и отметь их вручную (без этикетки).</span>
+        </p>
+        <div class="actions" style="justify-content:center; gap:10px;">
+            <button type="button" class="backup" id="btnSearchMore" style="background:var(--blue); font-size:15px; padding:12px 20px;">🔍 Поищу еще!</button>
+            <button type="button" class="danger" id="btnMarkLost" style="font-size:15px; padding:12px 20px;">📉 Это недостача</button>
+        </div>
+    </div>
+</div>
    <!-- МОДАЛКА КОНСТРУКТОРА ЭТИКЕТОК -->
 <div class="modal-bg" id="labelDesignModal">
     <div class="modal" style="max-width:850px">
