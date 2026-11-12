@@ -1566,11 +1566,134 @@
         details .details-content {
             transition: height 0.25s ease, opacity 0.25s ease, margin 0.25s ease, padding 0.25s ease;
         }
+
+        /* === КАЛЕНДАРЬ И ГАНТ === */
+        .event-view-btn.active {
+            background: var(--blue) !important;
+            color: #fff !important;
+            border-color: var(--blue) !important;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            background: var(--border-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .calendar-day {
+            background: var(--card);
+            min-height: 80px;
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .calendar-day.other-month {
+            background: var(--th-bg);
+            opacity: 0.6;
+        }
+
+        .calendar-day.today {
+            border: 2px solid var(--blue);
+        }
+
+        .cal-date {
+            font-size: 11px;
+            font-weight: bold;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+            text-align: right;
+        }
+
+        .cal-event {
+            font-size: 10px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            background: var(--purple);
+            color: #fff;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .cal-header {
+            background: var(--th-bg);
+            padding: 8px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .gantt-container {
+            min-width: 800px;
+        }
+
+        .gantt-row {
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid var(--border-light);
+            height: 40px;
+        }
+
+        .gantt-side {
+            width: 200px;
+            flex-shrink: 0;
+            padding: 0 10px;
+            font-size: 12px;
+            font-weight: 600;
+            border-right: 2px solid var(--border);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .gantt-timeline {
+            flex: 1;
+            display: flex;
+            position: relative;
+        }
+
+        .gantt-col {
+            flex: 1;
+            border-right: 1px solid var(--border-light);
+            min-width: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+
+        .gantt-bar {
+            position: absolute;
+            height: 24px;
+            top: 8px;
+            border-radius: 4px;
+            background: var(--blue);
+            opacity: 0.8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            overflow: hidden;
+            white-space: nowrap;
+            padding: 0 4px;
+        }
     </style>
     <!-- ====== АВТООБНОВЛЕНИЕ И PWA ====== -->
     <script>
         // ВАЖНО: Эта цифра должна совпадать с той, что в файле version.txt на GitHub!
-        var APP_VERSION = "7.0.0"; // <------ВЕРСИЯ не забудь сменить при разворачивании ёбанарот)
+        var APP_VERSION = "7.3.0"; // <------ВЕРСИЯ не забудь сменить при разворачивании ёбанарот)
 
         setInterval(function () {
             fetch('version.txt?t=' + Date.now())
@@ -1809,36 +1932,61 @@
             </div>
         </div>
 
-        <!-- МОДЕЛИ -->
+        <!-- МОДЕЛИ И КОМПЛЕКТЫ -->
         <div id="tab-models" class="tab-content">
-            <div class="card">
-                <div
-                    style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px">
-                    <h3>🗄 Справочник Оборудования</h3>
-                    <button type="button" id="btnAddModel" class="backup">+ Новая модель</button>
-                    <button type="button" id="btnImportModels" class="ghost" style="background:#0288d1">📥 Импорт из
-                        CSV</button>
-                    <button type="button" id="btnDownloadTemplate" class="ghost" style="background:#00897b">⬇ Шаблон
-                        CSV</button>
-                    <input type="file" id="importModelsFile" accept=".csv" style="display:none">
+            <div class="sub-tabs">
+                <button type="button" class="sub-tab active" data-subtab="subtab-models">🗄 Модели</button>
+                <button type="button" class="sub-tab" data-subtab="subtab-kits">📦 Комплекты</button>
+            </div>
+
+            <!-- ПОДВКЛАДКА: МОДЕЛИ -->
+            <div id="subtab-models" class="sub-content active">
+                <div class="card">
+                    <div
+                        style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px">
+                        <h3>🗄 Справочник Оборудования</h3>
+                        <button type="button" id="btnAddModel" class="backup">+ Новая модель</button>
+                        <button type="button" id="btnImportModels" class="ghost" style="background:#0288d1">📥 Импорт из
+                            CSV</button>
+                        <button type="button" id="btnDownloadTemplate" class="ghost" style="background:#00897b">⬇ Шаблон
+                            CSV</button>
+                        <input type="file" id="importModelsFile" accept=".csv" style="display:none">
+                    </div>
+
+                    <div style="display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap">
+                        <input type="text" id="modelSearch" placeholder="Поиск..." style="flex:1;min-width:200px">
+                        <select id="modelFilter" style="width:200px">
+                            <option value="all">Все категории</option>
+                            <option value="Свет">Свет</option>
+                            <option value="Звук">Звук</option>
+                            <option value="Эффекты">Эффекты</option>
+                            <option value="Видео">Видео</option>
+                            <option value="Кабели">Кабели</option>
+                            <option value="Питание">Питание</option>
+                            <option value="Без категории">Без категории</option>
+                        </select>
+                    </div>
+
+                    <div id="modelsListContainer"></div>
                 </div>
-                <div style="display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap">
-                    <input type="text" id="modelSearch" placeholder="Поиск..." style="flex:1;min-width:200px">
-                    <select id="modelFilter" style="width:200px">
-                        <option value="all">Все категории</option>
-                        <option value="Свет">Свет</option>
-                        <option value="Звук">Звук</option>
-                        <option value="Эффекты">Эффекты</option>
-                        <option value="Видео">Видео</option>
-                        <option value="Кабели">Кабели</option>
-                        <option value="Питание">Питание</option>
-                        <option value="Без категории">Без категории</option>
-                    </select>
-                </div>
-                <div id="modelsListContainer">
+            </div>
+            <!-- ПОДВКЛАДКА: КОМПЛЕКТЫ -->
+            <div id="subtab-kits" class="sub-content">
+                <div class="card">
+                    <div
+                        style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px">
+                        <h3>📦 Типовые комплекты (Сборки)</h3>
+                        <button type="button" class="backup" onclick="openKitEdit(null)">+ Новый комплект</button>
+                    </div>
+                    <p style="font-size:12px;color:var(--text-muted);margin-bottom:15px">
+                        Создавайте готовые сборки (например: «Свет для клуба», «Звук на свадьбу»), чтобы потом добавлять
+                        их в мероприятия одной кнопкой.
+                    </p>
+                    <div id="kitsList" class="stats-cards"></div>
                 </div>
             </div>
         </div>
+
 
         <!-- ДОКУМЕНТЫ -->
         <div id="tab-documents" class="tab-content">
@@ -2104,7 +2252,8 @@
                             title="Есть запчасти ниже критического остатка"></span></h3>
                     <div style="display:flex;gap:8px;flex-wrap:wrap">
                         <button type="button" class="backup" style="background:var(--red)"
-                            onclick="openPartsLowStock()">⚠️ К заказу</button>
+                            onclick="openPartsLowStock()">⚠️
+                            К заказу</button>
                         <button type="button" class="backup" onclick="openPartEdit(null)">+ Новая запчасть</button>
                     </div>
                 </div>
@@ -2185,6 +2334,20 @@
                 <p style="font-size:12px;color:var(--text-muted);margin-bottom:15px">Здесь вы можете учитывать
                     оборудование, которое уезжает на свадьбы, корпоративы или гастроли. В отличие от Точек, здесь важен
                     каждый день аренды.</p>
+                <div
+                    style="display:flex; gap:5px; margin-bottom:15px; background:var(--th-bg); padding:5px; border-radius:8px; width:fit-content;">
+                    <button type="button" class="ghost small event-view-btn active" data-view="list"
+                        style="padding:6px 16px; border-radius:6px;">📋 Список</button>
+                    <button type="button" class="ghost small event-view-btn" data-view="calendar"
+                        style="padding:6px 16px; border-radius:6px;">📅 Календарь</button>
+                    <button type="button" class="ghost small event-view-btn" data-view="gantt"
+                        style="padding:6px 16px; border-radius:6px;">📊 Гант</button>
+                </div>
+
+                <!-- Контейнеры для видов -->
+                <div id="eventsList" class="stats-cards"></div>
+                <div id="eventsCalendarView" style="display:none;"></div>
+                <div id="eventsGanttView" style="display:none; overflow-x:auto;"></div>
                 <div id="eventsList" class="stats-cards"></div>
             </div>
         </div>
@@ -2322,6 +2485,56 @@
 
         <!-- МОДАЛКИ -->
 
+        <!-- МОДАЛКА ВЫБОРА КОНТАКТА ДЛЯ МЕРОПРИЯТИЯ -->
+        <div class="modal-bg" id="selectContactForEventModal" style="z-index: 2500;">
+            <div class="modal" style="max-width:500px">
+                <h3>Выберите контакты для мероприятия</h3>
+                <p style="color:var(--text-muted);font-size:13px;margin-bottom:15px">Отметьте людей, которые будут
+                    задействованы.</p>
+                <div id="selectContactList"
+                    style="max-height:50vh; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:15px;">
+                </div>
+                <div class="actions" style="justify-content:flex-end;">
+                    <button type="button" class="ghost"
+                        onclick="document.getElementById('selectContactForEventModal').classList.remove('active')">Отмена</button>
+                    <button type="button" class="backup" onclick="saveEventParticipants()">Сохранить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- МОДАЛКА КОМПЛЕКТА (v7.3.0) -->
+        <div class="modal-bg" id="kitModal">
+            <div class="modal" style="max-width:750px">
+                <h3 id="kitModalTitle">Новый комплект</h3>
+                <div class="field full" style="margin-top:15px;">
+                    <label>Название комплекта *</label>
+                    <input type="text" id="kitName" placeholder="Например: Свет для клуба">
+                </div>
+
+                <div style="margin-top:15px; background:var(--th-bg); padding:10px; border-radius:8px;">
+                    <label style="font-weight:bold; color:var(--blue); margin-bottom:8px; display:block;">Состав
+                        комплекта:</label>
+                    <div id="kitModelsList"
+                        style="max-height:250px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="kitModelSearch" placeholder="Поиск модели для добавления..."
+                            style="flex:1;" oninput="renderKitModelSearch()">
+                    </div>
+                    <div id="kitModelSearchResults" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:6px;">
+                    </div>
+                </div>
+
+                <div class="actions"
+                    style="justify-content:flex-end;margin-top:20px;border-top:1px solid var(--border-light);padding-top:15px">
+                    <button type="button" class="ghost"
+                        onclick="document.getElementById('kitModal').classList.remove('active')">Отмена</button>
+                    <button type="button" class="backup" onclick="saveKit()">Сохранить</button>
+                </div>
+            </div>
+        </div>
+
         <!-- МОДАЛКА КОНТАКТА (v7.1.0) -->
         <div class="modal-bg" id="contactModal">
             <div class="modal" style="max-width:600px">
@@ -2345,6 +2558,8 @@
 
                     <div class="field"><label>Телефон</label><input type="text" id="contactPhone"
                             placeholder="+7 999 123-45-67" oninput="formatPhoneInput(this)"></div>
+                    <div class="field"><label>Время в пути до склада</label><input type="time" id="contactTravelTime">
+                    </div>
                     <div class="field"><label>Email</label><input type="email" id="contactEmail"
                             placeholder="mail@example.com"></div>
                     <div class="field full"><label>Заметки</label><input type="text" id="contactNote"
@@ -2373,7 +2588,8 @@
                     <input type="text" id="newRoleInput" placeholder="Новая роль..." style="flex:1;"
                         onkeypress="if(event.key==='Enter') addRoleFromEditor()">
                     <button type="button" class="backup" style="background:var(--green);"
-                        onclick="addRoleFromEditor()">+ Добавить</button>
+                        onclick="addRoleFromEditor()">+
+                        Добавить</button>
                 </div>
                 <div class="actions"
                     style="justify-content:flex-end; border-top:1px solid var(--border-light); padding-top:15px;">
@@ -2411,10 +2627,22 @@
                             <div class="field"><label>Этаж</label><input type="text" id="vhFloor"
                                     placeholder="3 / Цоколь">
                             </div>
-                            <div class="field"><label>Время в пути (часы)</label><input type="number" id="vhTravelTime"
-                                    step="0.1" min="0" placeholder="1.5"></div>
+                            <div class="field"><label>Время в пути (ЧЧ:ММ)</label><input type="time" id="vhTravelTime">
+                            </div>
                             <div class="field"><label>Правила заезда</label><input type="text" id="vhEntryRules"
                                     placeholder="По пропускам"></div>
+                            <div class="field full">
+                                <label>Представители зала</label>
+                                <details
+                                    style="background:var(--th-bg); padding:10px; border-radius:8px; border:1px solid var(--border);">
+                                    <summary
+                                        style="cursor:pointer; font-size:13px; font-weight:bold; color:var(--blue);">
+                                        Выбрать контакты...</summary>
+                                    <div id="vhContactsCheckboxes"
+                                        style="display:flex; flex-direction:column; gap:6px; margin-top:10px; max-height:150px; overflow-y:auto;">
+                                    </div>
+                                </details>
+                            </div>
                             <div class="field full"><label>Примечание</label><input type="text" id="vhNote"
                                     placeholder="Например: узкий лифт, приборы выше 2м не пройдут"></div>
                         </div>
@@ -2530,7 +2758,8 @@
                         </select>
                     </div>
                     <div class="field full"><label>ФИО / Название *</label><input type="text" id="landlordName"
-                            required></div>
+                            required>
+                    </div>
                     <div class="field full"><label>Телефон</label><input type="text" id="landlordPhone"></div>
                     <div class="field landlord-ip"><label>ИНН</label><input type="text" id="landlordInn"></div>
                     <div class="field landlord-ip"><label>ОГРНИП</label><input type="text" id="landlordOgrnip"></div>
@@ -2589,7 +2818,8 @@
                     <div class="field full"><label>Юридический / Фактический адрес</label><input type="text"
                             id="clientAddress"></div>
                     <div class="field full"><label>Контактное лицо (если есть)</label><input type="text"
-                            id="clientContact"></div>
+                            id="clientContact">
+                    </div>
                     <div class="field full"
                         style="flex-direction:row; align-items:center; gap:12px; margin-top:10px; background:var(--th-bg); padding:12px; border-radius:8px; border:1px solid var(--border-light);">
                         <input type="checkbox" id="clientUnreliable"
@@ -2845,7 +3075,8 @@
                     <div class="field"><label>Мастер</label><input type="text" id="histMaster"
                             placeholder="Слава / Кислов / ..."></div>
                     <div class="field"><label>Стоимость (₽)</label><input type="number" id="histCost" step="0.01"
-                            min="0"></div>
+                            min="0">
+                    </div>
                     <div class="actions full" style="justify-content:flex-end">
                         <button type="button" class="ghost" id="historyCancel">Закрыть</button>
                         <button type="submit">Добавить запись</button>
@@ -3051,7 +3282,8 @@
                 <div
                     style="background:var(--th-bg); padding:15px; border-radius:8px; margin-bottom:15px; display:flex; gap:20px;">
                     <div><b>Мощность:</b> <span id="soundPowerInfo"
-                            style="color:var(--orange); font-weight:bold;"></span></div>
+                            style="color:var(--orange); font-weight:bold;"></span>
+                    </div>
                     <div><b>Сопротивление:</b> <span id="soundOhmInfo"
                             style="color:var(--purple); font-weight:bold;"></span></div>
                 </div>
@@ -5599,6 +5831,7 @@
 
                 var models = [], instances = [], data = [], locations = [], audits = [], clients = [], landlords = [], templates = [], dmxTooltips = {}, toolboxes = [], parts = [], events = [], venues = [], contacts = [];
                 var tempVenueHalls = [], editVenueId = null, editContactId = null;
+                var kits = [], editKitId = null, tempKitModels = [];
 
                 // Новый массив с ролями по умолчанию
                 var defaultContactRoles = [
@@ -5676,12 +5909,12 @@
                         labelDesign: labelDesign, catTree: CAT_TREE, cardOrder: cardOrder,
                         specsConfig: SPECS_CONFIG,
                         fieldPresets: FIELD_PRESETS,
-                        clients: [], landlords: [], templates: [], parts: parts, venues: venues, contacts: contacts, contactRoles: contactRoles,
+                        clients: [], landlords: [], templates: [], parts: parts, venues: venues, contacts: contacts, kits: kits, contactRoles: contactRoles,
                         policy: postpayment ? "postpay" : "prepay"
                     };
                 }
                 function saveToStorage() {
-                    try { localStorage.setItem(KEY, JSON.stringify({ models: models, instances: instances, data: data, locations: locations, audits: audits, clients: clients, landlords: landlords, templates: templates, dmxTooltips: dmxTooltips, labelDesign: labelDesign, specsConfig: SPECS_CONFIG, fieldPresets: FIELD_PRESETS, toolboxes: toolboxes, parts: parts, events: events, venues: venues, contacts: contacts, contactRoles: contactRoles })); } catch (e) { alert("Ошибка сохранения: " + e.message); }
+                    try { localStorage.setItem(KEY, JSON.stringify({ models: models, instances: instances, data: data, locations: locations, audits: audits, clients: clients, landlords: landlords, templates: templates, dmxTooltips: dmxTooltips, labelDesign: labelDesign, specsConfig: SPECS_CONFIG, fieldPresets: FIELD_PRESETS, toolboxes: toolboxes, parts: parts, events: events, venues: venues, contacts: contacts, kits: kits, contactRoles: contactRoles })); } catch (e) { alert("Ошибка сохранения: " + e.message); }
                     if (isConf()) syncSave();
                 }
                 function setSync(s, m) {
@@ -5745,7 +5978,7 @@
                         landlords: parsed.landlords || [], templates: parsed.templates || [],
                         dmxTooltips: parsed.dmxTooltips || {}, labelDesign: parsed.labelDesign || null,
                         catTree: parsed.catTree || null, cardOrder: parsed.cardOrder || null,
-                        specsConfig: parsed.specsConfig || null, fieldPresets: parsed.fieldPresets || null, toolboxes: parsed.toolboxes || [], parts: parsed.parts || [], events: parsed.events || [], venues: parsed.venues || [], contacts: parsed.contacts || [], contactRoles: parsed.contactRoles || null, policy: parsed.policy || null
+                        specsConfig: parsed.specsConfig || null, fieldPresets: parsed.fieldPresets || null, toolboxes: parsed.toolboxes || [], parts: parsed.parts || [], events: parsed.events || [], kits: parsed.kits || [], contactRoles: parsed.contactRoles || null, policy: parsed.policy || null
                     };
                 }
 
@@ -5782,7 +6015,7 @@
                             data: data, locations: locations, audits: audits, clients: clients,
                             landlords: landlords, templates: templates, dmxTooltips: dmxTooltips,
                             labelDesign: labelDesign, catTree: CAT_TREE, cardOrder: cardOrder,
-                            specsConfig: SPECS_CONFIG, fieldPresets: FIELD_PRESETS, toolboxes: toolboxes, parts: parts, events: events, venues: venues, contacts: contacts, contactRoles: contactRoles, policy: postpayment ? "postpay" : "prepay"
+                            specsConfig: SPECS_CONFIG, fieldPresets: FIELD_PRESETS, toolboxes: toolboxes, parts: parts, events: events, venues: venues, contacts: contacts, kits: kits, contactRoles: contactRoles, policy: postpayment ? "postpay" : "prepay"
                         };
 
                         if (currentRole === "admin") {
@@ -5827,12 +6060,16 @@
                 function switchTab(tabId) {
                     document.querySelectorAll(".nav-tab").forEach(function (t) { t.classList.toggle("active", t.dataset.tab === tabId); });
                     document.querySelectorAll(".tab-content").forEach(function (c) { c.classList.toggle("active", c.id === tabId); });
-                    if (tabId === "tab-models") renderModels();
+                    if (tabId === "tab-models") { renderModels(); renderKits(); }
                     if (tabId === "tab-instances") renderInstances();
                     if (tabId === "tab-fleet") { renderFleet(); renderPlacement(); }
                     if (tabId === "tab-repairs") renderRepairs();
                     if (tabId === "tab-workshop") { renderWorkshop(); renderParts(); renderRepairAnalytics(); }
-                    if (tabId === "tab-events") { renderEvents(); }
+                    if (tabId === "tab-events") {
+                        renderEvents();
+                        if (currentEventView === "calendar") renderCalendarView();
+                        if (currentEventView === "gantt") renderGanttView();
+                    }
                     if (tabId === "tab-audits") { renderAudits(); fillAuditReturnSelect(); }
                     if (tabId === "tab-clients") { renderClients(); renderVenues(); renderContacts(); }
                     if (tabId === "tab-documents") { renderLandlords(); renderTemplates(); }
@@ -7169,15 +7406,30 @@
                             }
                         }
 
+                        var participantsLine = "";
+                        if (evt.participants && evt.participants.length > 0) {
+                            var partsNames = evt.participants.map(function (p) {
+                                var c = contacts.find(function (x) { return x.id === p.contactId; });
+                                if (!c) return null;
+                                var rolesStr = Array.isArray(p.roles) && p.roles.length ? " (" + p.roles.join(", ") + ")" : "";
+                                return esc(c.name) + rolesStr;
+                            }).filter(Boolean);
+                            if (partsNames.length > 0) {
+                                participantsLine = '<div class="s-row" style="flex-direction:column; align-items:flex-start;"><span>Участники:</span><b style="text-align:left; font-size:11px; font-weight:normal; color:var(--text-muted);">' + partsNames.join("<br>") + '</b></div>';
+                            }
+                        }
+
                         return '<div class="s-card" style="border-left-color:var(--purple);">' +
                             '<div class="s-name"><span>🎪 ' + esc(evt.name) + '</span>' + statusBadge + '</div>' +
                             '<div class="s-row"><span>Даты:</span><b>' + formatRuDateShort(evt.startDate) + ' — ' + formatRuDateShort(evt.endDate) + ' (' + days + ' дн.)</b></div>' +
                             '<div class="s-row"><span>Арендатор:</span><b>' + esc(evt.clientName || "—") + '</b></div>' +
                             venueLine +
+                            participantsLine +
                             '<div class="s-row"><span>Оборудование:</span><b>' + eqCount + ' шт.</b></div>' +
                             '<div class="s-row"><span>Стоимость:</span><b style="color:var(--green)">' + fmt(evt.rentCost || 0) + '</b></div>' +
                             '<div class="actions" style="margin-top:10px; justify-content:flex-end;">' +
                             '<button type="button" class="info small" style="background:var(--blue);" onclick="openEventEquipment(\'' + evt.id + '\')">📦 Оборудование</button>' +
+                            '<button type="button" class="info small" style="background:var(--orange);" onclick="printEventWorksheet(\'' + evt.id + '\')">🖨 Рабочий лист</button>' +
                             '<button type="button" class="info small" onclick="openEventEdit(\'' + evt.id + '\')">✎ Изменить</button>' +
                             '<button type="button" class="danger small" onclick="deleteEvent(\'' + evt.id + '\')">✕</button>' +
                             '</div></div>';
@@ -7300,7 +7552,22 @@
                             '<div class="field full" id="evtVenueInfo" style="display:none; background:var(--th-bg); padding:10px; border-radius:8px; font-size:12px; line-height:1.5;"></div>' +
                             '<div class="field"><label>Дата начала *</label><input type="date" id="evtStart" required></div>' +
                             '<div class="field"><label>Дата окончания *</label><input type="date" id="evtEnd" required></div>' +
+                            '<div class="field full"><label>⏰ Тайминг (необязательно)</label>' +
+                            '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; background:var(--th-bg); padding:10px; border-radius:8px;">' +
+                            '<div class="field"><label style="font-size:11px;">Монтаж (начало)</label><input type="time" id="evtTimeSetup"></div>' +
+                            '<div class="field"><label style="font-size:11px;">Готовность</label><input type="time" id="evtTimeReady"></div>' +
+                            '<div class="field"><label style="font-size:11px;">Начало</label><input type="time" id="evtTimeStart"></div>' +
+                            '<div class="field"><label style="font-size:11px;">Конец</label><input type="time" id="evtTimeEnd"></div>' +
+                            '<div class="field"><label style="font-size:11px;">Демонтаж</label><input type="time" id="evtTimeTeardown"></div>' +
+                            '</div></div>' +
                             '<div class="field"><label>Стоимость аренды (₽)</label><input type="number" id="evtCost" min="0" value="0" onfocus="if(this.value===\'0\') this.value=\'\'"></div>' +
+                            '<div class="field full" style="background:var(--th-bg); padding:10px; border-radius:8px;">' +
+                            '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+                            '<label style="font-weight:bold; color:var(--blue); margin:0;">👥 Участники мероприятия</label>' +
+                            '<button type="button" class="info small" onclick="openSelectContactForEvent()">+ Добавить</button>' +
+                            '</div>' +
+                            '<div id="eventParticipantsList" style="display:flex; flex-direction:column; gap:6px;"></div>' +
+                            '</div>' +
                             '<div class="field"><label>Примечание</label><input type="text" id="evtNote" placeholder="Особые условия"></div>' +
                             '<div class="actions full" style="justify-content:flex-end;margin-top:15px">' +
                             '<button type="button" class="ghost" onclick="document.getElementById(\'eventEditModal\').classList.remove(\'active\')">Отмена</button>' +
@@ -7348,6 +7615,12 @@
                                 rentCost: parseFloat(document.getElementById("evtCost").value) || 0,
                                 note: document.getElementById("evtNote").value.trim(),
                                 equipmentList: [],
+                                participants: tempEventParticipants,
+                                timeSetup: document.getElementById("evtTimeSetup").value,
+                                timeReady: document.getElementById("evtTimeReady").value,
+                                timeStart: document.getElementById("evtTimeStart").value,
+                                timeEnd: document.getElementById("evtTimeEnd").value,
+                                timeTeardown: document.getElementById("evtTimeTeardown").value,
                                 status: "active"
                             };
                             if (editEventId) {
@@ -7367,6 +7640,7 @@
 
                     editEventId = evtId;
                     var evt = evtId ? events.find(function (x) { return x.id === evtId; }) : null;
+                    currentEventObj = evt || { participants: [] }; // Запоминаем, кого редактируем
 
                     document.getElementById("eventEditTitle").textContent = evt ? "Редактировать мероприятие" : "Новое мероприятие";
                     document.getElementById("evtName").value = evt ? evt.name : "";
@@ -7381,6 +7655,13 @@
                     document.getElementById("evtEnd").value = evt ? evt.endDate : today();
                     document.getElementById("evtCost").value = evt ? (evt.rentCost || 0) : 0;
                     document.getElementById("evtNote").value = evt ? (evt.note || "") : "";
+                    document.getElementById("evtTimeSetup").value = evt ? (evt.timeSetup || "") : "";
+                    document.getElementById("evtTimeReady").value = evt ? (evt.timeReady || "") : "";
+                    document.getElementById("evtTimeStart").value = evt ? (evt.timeStart || "") : "";
+                    document.getElementById("evtTimeEnd").value = evt ? (evt.timeEnd || "") : "";
+                    document.getElementById("evtTimeTeardown").value = evt ? (evt.timeTeardown || "") : "";
+                    tempEventParticipants = evt ? JSON.parse(JSON.stringify(evt.participants || [])) : [];
+                    renderEventParticipants(tempEventParticipants);
 
                     modal.classList.add("active");
                 };
@@ -12428,7 +12709,7 @@
                         dmxTooltips: dmxTooltips, labelDesign: labelDesign, catTree: CAT_TREE, toolboxes: toolboxes,
                         fieldPresets: FIELD_PRESETS, specsConfig: SPECS_CONFIG,
                         cardOrder: cardOrder, policy: postpayment ? "postpay" : "prepay",
-                        venues: venues, contacts: contacts, contactRoles: contactRoles, events: events, parts: parts
+                        venues: venues, contacts: contacts, kits: kits, contactRoles: contactRoles, events: events, parts: parts
                     };
                     var blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
                     var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "backup_erp_v5_" + today() + ".json";
@@ -12453,7 +12734,7 @@
                             clients = parsed.clients || [];
                             landlords = parsed.landlords || [];
                             templates = parsed.templates || [];
-                            if (parsed.dmxTooltips) dmxTooltips = parsed.dmxTooltips; parts = parsed.parts || []; events = parsed.events || []; venues = parsed.venues || []; contacts = parsed.contacts || [];
+                            if (parsed.dmxTooltips) dmxTooltips = parsed.dmxTooltips; parts = parsed.parts || []; events = parsed.events || []; venues = parsed.venues || []; contacts = parsed.contacts || []; kits = parsed.kits || [];
                             if (parsed.contactRoles) contactRoles = parsed.contactRoles;;
                             if (parsed.fieldPresets && typeof parsed.fieldPresets === "object") {
                                 FIELD_PRESETS = Object.assign({}, FIELD_PRESETS, parsed.fieldPresets);
@@ -12517,7 +12798,7 @@
                         localStorage.setItem(GIST_KEY, g);
 
                         models = remote.models; instances = remote.instances; data = remote.data; locations = remote.locations; audits = remote.audits;
-                        clients = remote.clients || []; landlords = remote.landlords || []; templates = remote.templates || []; dmxTooltips = remote.dmxTooltips || {}; parts = remote.parts || []; events = remote.events || []; venues = remote.venues || []; contacts = remote.contacts || [];
+                        clients = remote.clients || []; landlords = remote.landlords || []; templates = remote.templates || []; dmxTooltips = remote.dmxTooltips || {}; parts = remote.parts || []; events = remote.events || []; venues = remote.venues || []; contacts = remote.contacts || []; kits = remote.kits || [];
                         if (remote.contactRoles) contactRoles = remote.contactRoles;
                         if (remote.labelDesign) labelDesign = remote.labelDesign;
                         applyRemoteFieldPresets(remote);
@@ -12559,7 +12840,7 @@
                         }
 
                         models = remote.models; instances = remote.instances; data = remote.data; locations = remote.locations; audits = remote.audits;
-                        clients = remote.clients || []; landlords = remote.landlords || []; templates = remote.templates || []; dmxTooltips = remote.dmxTooltips || {}; parts = remote.parts || []; events = remote.events || []; venues = remote.venues || []; contacts = remote.contacts || [];
+                        clients = remote.clients || []; landlords = remote.landlords || []; templates = remote.templates || []; dmxTooltips = remote.dmxTooltips || {}; parts = remote.parts || []; events = remote.events || []; venues = remote.venues || []; contacts = remote.contacts || []; kits = remote.kits || [];
                         if (remote.contactRoles) contactRoles = remote.contactRoles;
                         if (remote.specsConfig) SPECS_CONFIG = remote.specsConfig;
                         applyRemoteFieldPresets(remote);
@@ -12734,7 +13015,7 @@
                             if (parsed.fieldPresets && typeof parsed.fieldPresets === "object") {
                                 FIELD_PRESETS = Object.assign({}, FIELD_PRESETS, parsed.fieldPresets);
                             }
-                            if (parsed.dmxTooltips) dmxTooltips = parsed.dmxTooltips; parts = parsed.parts || []; events = parsed.events || []; venues = parsed.venues || []; contacts = parsed.contacts || [];
+                            if (parsed.dmxTooltips) dmxTooltips = parsed.dmxTooltips; parts = parsed.parts || []; events = parsed.events || []; venues = parsed.venues || []; contacts = parsed.contacts || []; kits = parsed.kits || [];
                             if (parsed.contactRoles) contactRoles = parsed.contactRoles;
                             if (parsed.toolboxes) toolboxes = parsed.toolboxes;
                             if (parsed.labelDesign) labelDesign = parsed.labelDesign;
@@ -12897,7 +13178,7 @@
                             setSync("loading");
                             updateLoader(80, "Связываемся с Мастер-Гистом...");
                             apiLoad(ghToken, ghGistId).then(function (remote) {
-                                models = remote.models; instances = remote.instances; data = remote.data; locations = remote.locations; audits = remote.audits; clients = remote.clients || []; landlords = remote.landlords || []; templates = remote.templates || []; dmxTooltips = remote.dmxTooltips || {}; parts = remote.parts || []; events = remote.events || []; venues = remote.venues || []; contacts = remote.contacts || [];
+                                models = remote.models; instances = remote.instances; data = remote.data; locations = remote.locations; audits = remote.audits; clients = remote.clients || []; landlords = remote.landlords || []; templates = remote.templates || []; dmxTooltips = remote.dmxTooltips || {}; parts = remote.parts || []; events = remote.events || []; venues = remote.venues || []; contacts = remote.contacts || []; kits = remote.kits || [];
                                 if (remote.contactRoles) contactRoles = remote.contactRoles;
                                 if (remote.specsConfig) SPECS_CONFIG = remote.specsConfig;
                                 applyRemoteFieldPresets(remote);
@@ -12937,7 +13218,7 @@
                             setTechSync("loading");
                             updateLoader(80, "Связываемся с Техническим Гистом...");
                             apiLoad(ghTechToken, ghTechGistId).then(function (remote) {
-                                models = remote.models; instances = remote.instances; data = remote.data; locations = remote.locations; audits = remote.audits; dmxTooltips = remote.dmxTooltips || {}; parts = remote.parts || []; events = remote.events || []; venues = remote.venues || []; contacts = remote.contacts || [];
+                                models = remote.models; instances = remote.instances; data = remote.data; locations = remote.locations; audits = remote.audits; dmxTooltips = remote.dmxTooltips || {}; parts = remote.parts || []; events = remote.events || []; venues = remote.venues || []; contacts = remote.contacts || []; kits = remote.kits || [];
                                 if (remote.contactRoles) contactRoles = remote.contactRoles;
                                 if (remote.specsConfig) SPECS_CONFIG = remote.specsConfig;
                                 applyRemoteFieldPresets(remote);
@@ -13568,7 +13849,7 @@
                         var warningIcon = showWarning ? '<span title="' + tooltipText + '" style="color:var(--red); font-size:16px; margin-right:6px;">⚠️</span>' : '';
                         return '<tr>'
                             + '<td>' + warningIcon + '<b>' + esc(c.name) + '</b></td>'
-                            + '<td>' + formatPhone(c.phone) + '</td>'
+                            + '<td>' + formatPhone(c.phone) + (c.travelTime ? '<br><span style="font-size:10px; color:var(--text-muted);">🚗 ' + formatTravelTime(c.travelTime) + ' до склада</span>' : '') + '</td>'
                             + '<td><span class="badge ' + (c.type === 'legal' ? 'soon' : (c.type === 'ip' ? 'warn' : 'ok')) + '">' + typeText + '</span></td>'
                             + '<td>' + esc(idText) + '</td>'
                             + '<td><div class="actions"><button type="button" class="edit" onclick="openClientEdit(\'' + c.id + '\')">✎</button>'
@@ -16273,6 +16554,15 @@
                     });
                 };
 
+                window.getVenueRepresentatives = function () {
+                    // Ищем только тех, у кого есть роли "Представитель зала", "Локация" или "Администратор"
+                    return contacts.filter(function (c) {
+                        var roles = Array.isArray(c.roles) ? c.roles : (c.role ? [c.role] : []);
+                        return roles.some(function (r) {
+                            return r === "Представитель зала" || r === "Локация" || r === "Администратор";
+                        });
+                    });
+                };
                 // ============================================================
                 // 🏢 v7.0.0: ПЛОЩАДКИ И ЗАЛЫ
                 // ============================================================
@@ -16308,8 +16598,21 @@
                             var meta = [];
                             if (h.area) meta.push("Площадь: " + esc(h.area) + " кв.м");
                             if (h.floor) meta.push("Этаж: " + esc(h.floor));
-                            if (h.travelTime) meta.push("В пути: " + esc(h.travelTime) + " ч");
+                            var timeText = formatTravelTime(h.travelTime);
+                            if (timeText) meta.push("В пути: " + timeText);
                             if (h.entryRules) meta.push("Заезд: " + esc(h.entryRules));
+
+                            // ВЫВОДИМ ПРЕДСТАВИТЕЛЕЙ ЗАЛА
+                            if (Array.isArray(h.contactIds) && h.contactIds.length > 0) {
+                                var cNames = h.contactIds.map(function (cid) {
+                                    var c = contacts.find(function (x) { return x.id === cid; });
+                                    return c ? esc(c.name) : null;
+                                }).filter(Boolean);
+                                if (cNames.length > 0) {
+                                    meta.push("👤 " + cNames.join(", "));
+                                }
+                            }
+
                             return '<div class="hall-row">' +
                                 '<div class="h-name">🚪 ' + esc(h.name) + '</div>' +
                                 (meta.length ? '<div class="h-info">' + meta.join(" • ") + '</div>' : '') +
@@ -16328,7 +16631,14 @@
                             '<button type="button" class="danger small" onclick="deleteVenue(\'' + v.id + '\')">✕</button>' +
                             '</div>' +
                             '</div>' +
-                            (hallsCount > 0 ? '<div class="v-body">' + hallsHtml + '</div>' : '') +
+                            // ДЕЛАЕМ СПОЙЛЕР ДЛЯ ЗАЛОВ
+                            (hallsCount > 0 ?
+                                '<div class="v-body" style="padding: 0 15px 10px 15px;">' +
+                                '<details>' +
+                                '<summary style="cursor:pointer; padding: 10px 0; font-weight: 600; color: var(--blue); font-size: 13px; border-top: 1px dashed var(--border-light);">Показать залы (' + hallsCount + ')</summary>' +
+                                '<div style="padding-top: 10px; display: flex; flex-direction: column; gap: 8px;">' + hallsHtml + '</div>' +
+                                '</details>' +
+                                '</div>' : '') +
                             '</div>';
                     }).join("");
                 };
@@ -16347,15 +16657,36 @@
                         tempVenueHalls = [{ id: "hall_" + genId(), name: "", area: "", floor: "", entryRules: "", travelTime: "", note: "" }];
                     }
 
-                    onVenueSingleHallToggle();
+                    // Правильно переключаем видимость блоков
+                    var isSingle = document.getElementById("venueSingleHall").checked;
+                    document.getElementById("venueSingleHallSection").style.display = isSingle ? "block" : "none";
+                    document.getElementById("venueMultiHallSection").style.display = isSingle ? "none" : "block";
+                    //  если залов несколько, сразу их отрисовываем!
+                    if (!isSingle) renderVenueHallsList();
 
                     if (document.getElementById("venueSingleHall").checked && tempVenueHalls.length > 0) {
                         var h = tempVenueHalls[0];
                         document.getElementById("vhArea").value = h.area || "";
                         document.getElementById("vhFloor").value = h.floor || "";
-                        document.getElementById("vhTravelTime").value = h.travelTime || "";
+                        document.getElementById("vhTravelTime").value = convertToTimeFormat(h.travelTime);
                         document.getElementById("vhEntryRules").value = h.entryRules || "";
                         document.getElementById("vhNote").value = h.note || "";
+                        var repsContainer = document.getElementById("vhContactsCheckboxes");
+                        if (repsContainer) {
+                            var reps = getVenueRepresentatives();
+                            var currentReps = h.contactIds || (h.contactId ? [h.contactId] : []); // Поддержка старого формата
+
+                            if (reps.length === 0) {
+                                repsContainer.innerHTML = '<div style="font-size:11px; color:var(--text-muted);">Нет контактов с ролью «Представитель зала» или «Локация»</div>';
+                            } else {
+                                repsContainer.innerHTML = reps.map(function (c) {
+                                    var isChecked = currentReps.indexOf(c.id) !== -1;
+                                    return '<label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">' +
+                                        '<input type="checkbox" value="' + c.id + '" ' + (isChecked ? 'checked' : '') + '> ' + esc(c.name) +
+                                        '</label>';
+                                }).join("");
+                            }
+                        }
                     }
 
                     document.getElementById("venueModal").classList.add("active");
@@ -16367,22 +16698,22 @@
                     document.getElementById("venueMultiHallSection").style.display = isSingle ? "none" : "block";
 
                     if (tempVenueHalls.length === 0) {
-                        tempVenueHalls = [{ id: "hall_" + genId(), name: "", area: "", floor: "", entryRules: "", travelTime: "", note: "" }];
+                        tempVenueHalls = [{ id: "hall_" + genId(), name: "", area: "", floor: "", entryRules: "", travelTime: "", note: "", contactIds: [] }];
                     }
 
                     if (isSingle) {
-                        // Если переключились на один зал - забираем данные из полей
+                        // Забираем данные из полей в память
                         tempVenueHalls[0].area = document.getElementById("vhArea").value.trim();
                         tempVenueHalls[0].floor = document.getElementById("vhFloor").value.trim();
                         tempVenueHalls[0].travelTime = document.getElementById("vhTravelTime").value.trim();
                         tempVenueHalls[0].entryRules = document.getElementById("vhEntryRules").value.trim();
                         tempVenueHalls[0].note = document.getElementById("vhNote").value.trim();
                     } else {
-                        // Если переключились на несколько - подставляем данные из первого зала в поля
+                        // Подставляем данные из первого зала в поля
                         var h = tempVenueHalls[0];
                         document.getElementById("vhArea").value = h.area || "";
                         document.getElementById("vhFloor").value = h.floor || "";
-                        document.getElementById("vhTravelTime").value = h.travelTime || "";
+                        document.getElementById("vhTravelTime").value = convertToTimeFormat(h.travelTime);
                         document.getElementById("vhEntryRules").value = h.entryRules || "";
                         document.getElementById("vhNote").value = h.note || "";
                         renderVenueHallsList();
@@ -16402,7 +16733,19 @@
                         el.innerHTML = '<div style="color:var(--text-muted); font-size:12px; padding:10px; text-align:center;">Нет залов. Нажмите «+ Добавить зал».</div>';
                         return;
                     }
+                    var reps = getVenueRepresentatives();
+
                     el.innerHTML = tempVenueHalls.map(function (h, idx) {
+                        var currentReps = h.contactIds || [];
+                        var repsHtml = reps.length === 0
+                            ? '<div style="font-size:11px; color:var(--text-muted);">Нет контактов с ролью «Представитель зала» или «Локация»</div>'
+                            : reps.map(function (c) {
+                                var isChecked = currentReps.indexOf(c.id) !== -1;
+                                return '<label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;">' +
+                                    '<input type="checkbox" ' + (isChecked ? 'checked' : '') + ' onchange="toggleVenueHallRep(' + idx + ', \'' + c.id + '\', this.checked)"> ' + esc(c.name) +
+                                    '</label>';
+                            }).join("");
+
                         return '<div style="border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px; background:var(--th-bg);">' +
                             '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
                             '<b style="font-size:13px; color:var(--blue);">Зал ' + (idx + 1) + '</b>' +
@@ -16412,12 +16755,28 @@
                             '<div class="field full"><label>Название зала *</label><input type="text" value="' + esc(h.name || '') + '" oninput="updateVenueHallField(' + idx + ', \'name\', this.value)" placeholder="Золотой"></div>' +
                             '<div class="field"><label>Площадь (кв.м)</label><input type="number" step="0.1" min="0" value="' + esc(h.area || '') + '" oninput="updateVenueHallField(' + idx + ', \'area\', this.value)"></div>' +
                             '<div class="field"><label>Этаж</label><input type="text" value="' + esc(h.floor || '') + '" oninput="updateVenueHallField(' + idx + ', \'floor\', this.value)" placeholder="3"></div>' +
-                            '<div class="field"><label>Время в пути (часы)</label><input type="number" step="0.1" min="0" value="' + esc(h.travelTime || '') + '" oninput="updateVenueHallField(' + idx + ', \'travelTime\', this.value)"></div>' +
+                            '<div class="field"><label>Время в пути</label><input type="time" value="' + esc(convertToTimeFormat(h.travelTime)) + '" oninput="updateVenueHallField(' + idx + ', \'travelTime\', this.value)"></div>' +
                             '<div class="field"><label>Правила заезда</label><input type="text" value="' + esc(h.entryRules || '') + '" oninput="updateVenueHallField(' + idx + ', \'entryRules\', this.value)" placeholder="По пропускам"></div>' +
+
+                            '<div class="field full"><label>Представители зала</label><details style="background:var(--card); padding:8px; border-radius:6px; border:1px solid var(--border);"><summary style="cursor:pointer; font-size:12px; color:var(--blue);">Выбрать контакты...</summary><div style="display:flex; flex-direction:column; gap:4px; margin-top:6px; max-height:120px; overflow-y:auto;">' + repsHtml + '</div></details></div>' +
+
                             '<div class="field full"><label>Примечание</label><input type="text" value="' + esc(h.note || '') + '" oninput="updateVenueHallField(' + idx + ', \'note\', this.value)"></div>' +
                             '</div>' +
                             '</div>';
                     }).join("");
+                };
+
+                // Функция для сохранения галочки представителя (добавляет/убирает ID из массива)
+                window.toggleVenueHallRep = function (hallIdx, contactId, isChecked) {
+                    var h = tempVenueHalls[hallIdx];
+                    if (!h) return;
+                    if (!Array.isArray(h.contactIds)) h.contactIds = [];
+
+                    if (isChecked) {
+                        if (h.contactIds.indexOf(contactId) === -1) h.contactIds.push(contactId);
+                    } else {
+                        h.contactIds = h.contactIds.filter(function (id) { return id !== contactId; });
+                    }
                 };
 
                 window.addVenueHallRow = function () {
@@ -16460,6 +16819,13 @@
 
                     if (singleHall) {
                         var existing = tempVenueHalls[0] || {};
+
+                        // 1. Сначала собираем галочки в массив
+                        var checkedReps = [];
+                        var repCheckboxes = document.querySelectorAll("#vhContactsCheckboxes input:checked");
+                        repCheckboxes.forEach(function (cb) { checkedReps.push(cb.value); });
+
+                        // 2. И только потом формируем объект зала
                         finalHalls = [{
                             id: existing.id || "hall_" + genId(),
                             name: name,
@@ -16467,7 +16833,8 @@
                             floor: document.getElementById("vhFloor").value.trim(),
                             travelTime: document.getElementById("vhTravelTime").value.trim(),
                             entryRules: document.getElementById("vhEntryRules").value.trim(),
-                            note: document.getElementById("vhNote").value.trim()
+                            note: document.getElementById("vhNote").value.trim(),
+                            contactIds: checkedReps // Теперь переменная существует
                         }];
                     } else {
                         if (tempVenueHalls.length === 0) { alert("Добавьте хотя бы один зал"); return; }
@@ -16478,7 +16845,8 @@
                                 id: h.id || "hall_" + genId(),
                                 name: h.name.trim(),
                                 area: h.area || "", floor: h.floor || "",
-                                travelTime: h.travelTime || "", entryRules: h.entryRules || "", note: h.note || ""
+                                travelTime: h.travelTime || "", entryRules: h.entryRules || "", note: h.note || "",
+                                contactIds: h.contactIds || [] // <--- ВОТ ОНА, СПАСИТЕЛЬНАЯ СТРОЧКА
                             };
                         });
                     }
@@ -16504,6 +16872,16 @@
                         document.querySelectorAll("#tab-clients .sub-content").forEach(function (c) { c.classList.toggle("active", c.id === target); });
                         if (target === "subtab-venues") renderVenues();
                         if (target === "subtab-contacts") renderContacts();
+                    });
+                });
+
+                // Оживляем подвкладки в Справочнике
+                document.querySelectorAll("#tab-models .sub-tab").forEach(function (btn) {
+                    btn.addEventListener("click", function () {
+                        var target = this.dataset.subtab;
+                        document.querySelectorAll("#tab-models .sub-tab").forEach(function (b) { b.classList.toggle("active", b === btn); });
+                        document.querySelectorAll("#tab-models .sub-content").forEach(function (c) { c.classList.toggle("active", c.id === target); });
+                        if (target === "subtab-kits") renderKits();
                     });
                 });
 
@@ -16609,6 +16987,31 @@
                     // Если закрыта — открывается как обычно, через CSS-анимацию из прошлого шага
                 });
 
+                // Конвертер старого формата (1.5) в красивый (01:30)
+                window.convertToTimeFormat = function (val) {
+                    if (!val) return "";
+                    var str = String(val).trim();
+                    if (str.indexOf(":") !== -1) return str;
+                    var floatVal = parseFloat(str.replace(",", "."));
+                    if (isNaN(floatVal)) return "";
+                    var h = Math.floor(floatVal);
+                    var m = Math.round((floatVal - h) * 60);
+                    return String(h).padStart(2, '0') + ":" + String(m).padStart(2, '0');
+                };
+
+                // Красивый вывод для карточки (01:30 -> 1 ч 30 мин)
+                window.formatTravelTime = function (val) {
+                    var timeStr = convertToTimeFormat(val);
+                    if (!timeStr) return "";
+                    var parts = timeStr.split(":");
+                    var h = parseInt(parts[0], 10) || 0;
+                    var m = parseInt(parts[1], 10) || 0;
+                    if (h === 0 && m === 0) return "";
+                    if (h === 0) return m + " мин";
+                    if (m === 0) return h + " ч";
+                    return h + " ч " + m + " мин";
+                };
+
                 // ============================================================
                 // 📞 v7.1.0: КОНТАКТЫ И РОЛИ
                 // ============================================================
@@ -16677,7 +17080,7 @@
                         return '<tr>'
                             + '<td><b>' + esc(c.name) + '</b>' + (c.email ? '<br><span style="font-size:11px; color:var(--text-muted)">' + esc(c.email) + '</span>' : '') + '</td>'
                             + '<td>' + rolesHtml + '</td>'
-                            + '<td>' + formatPhone(c.phone) + '</td>'
+                            + '<td>' + formatPhone(c.phone) + (c.travelTime ? '<br><span style="font-size:10px; color:var(--text-muted);">🚗 ' + formatTravelTime(c.travelTime) + ' до склада</span>' : '') + '</td>'
                             + '<td><div class="actions">'
                             + '<button type="button" class="edit small" onclick="openContactEdit(\'' + c.id + '\')">✎</button>'
                             + '<button type="button" class="danger small" onclick="deleteContact(\'' + c.id + '\')">✕</button>'
@@ -16731,6 +17134,7 @@
                     document.getElementById("contactEmail").value = c ? (c.email || "") : "";
                     document.getElementById("contactNote").value = c ? (c.note || "") : "";
                     document.getElementById("newCustomRole").value = "";
+                    document.getElementById("contactTravelTime").value = c ? (c.travelTime || "") : "";
 
                     // МАГИЯ: Конвертируем старую роль (строку) в массив ролей
                     var selectedRoles = [];
@@ -16769,7 +17173,8 @@
                         roles: selectedRoles, // Теперь это массив!
                         phone: document.getElementById("contactPhone").value.trim(),
                         email: document.getElementById("contactEmail").value.trim(),
-                        note: document.getElementById("contactNote").value.trim()
+                        note: document.getElementById("contactNote").value.trim(),
+                        travelTime: document.getElementById("contactTravelTime").value,
                     };
 
                     if (editContactId) {
@@ -16860,6 +17265,474 @@
                         renderContacts();
                     });
                 });
+
+                // ============================================================
+                // 👥 СВЯЗЬ КОНТАКТОВ И МЕРОПРИЯТИЙ
+                // ============================================================
+                var currentEventObj = null; // Временная ссылка на мероприятие
+                var tempEventParticipants = []; // Временный список участников
+
+                window.renderEventParticipants = function (participants) {
+                    var el = document.getElementById("eventParticipantsList");
+                    if (!el) return;
+                    if (!participants || participants.length === 0) {
+                        el.innerHTML = '<div style="font-size:11px; color:var(--text-muted); text-align:center;">Нет добавленных участников</div>';
+                        return;
+                    }
+                    el.innerHTML = participants.map(function (p, idx) {
+                        var c = contacts.find(function (x) { return x.id === p.contactId; });
+                        if (!c) return "";
+                        var rolesStr = Array.isArray(p.roles) ? p.roles.join(", ") : "";
+                        return '<div style="display:flex; justify-content:space-between; align-items:center; background:var(--card); padding:6px 10px; border-radius:6px; border:1px solid var(--border);">' +
+                            '<div><b>' + esc(c.name) + '</b> <span style="font-size:11px; color:var(--blue);">(' + esc(rolesStr) + ')</span></div>' +
+                            '<button type="button" class="danger small" onclick="removeEventParticipant(' + idx + ')">✕</button>' +
+                            '</div>';
+                    }).join("");
+                };
+
+                window.removeEventParticipant = function (idx) {
+                    tempEventParticipants.splice(idx, 1);
+                    renderEventParticipants(tempEventParticipants);
+                };
+
+                // Вызывается при открытии окна выбора
+                window.openSelectContactForEvent = function () {
+                    if (!currentEventObj) return;
+                    tempEventParticipants = JSON.parse(JSON.stringify(currentEventObj.participants || []));
+
+                    var container = document.getElementById("selectContactList");
+                    if (!container) return;
+
+                    if (!contacts.length) {
+                        container.innerHTML = '<div style="color:var(--text-muted); padding:10px; text-align:center;">Сначала создайте контакты во вкладке «Люди и места» → «Контакты»</div>';
+                    } else {
+                        container.innerHTML = contacts.map(function (c) {
+                            var existingP = tempEventParticipants.find(function (p) { return p.contactId === c.id; });
+                            var isChecked = !!existingP;
+
+                            // Рисуем роли, если их несколько
+                            var rolesHtml = "";
+                            var cRoles = Array.isArray(c.roles) ? c.roles : (c.role ? [c.role] : []);
+
+                            if (cRoles.length > 1) {
+                                var roleCbs = cRoles.map(function (r) {
+                                    var isRoleChecked = existingP && existingP.roles && existingP.roles.indexOf(r) !== -1;
+                                    return '<label style="font-size:11px; display:flex; align-items:center; gap:4px; cursor:pointer; background:var(--th-bg); padding:3px 8px; border-radius:4px; border:1px solid var(--border);">' +
+                                        '<input type="checkbox" class="evt-role-cb" data-contact-id="' + c.id + '" value="' + esc(r) + '" ' + (isRoleChecked ? 'checked' : '') + '> ' + esc(r) +
+                                        '</label>';
+                                }).join("");
+                                rolesHtml = '<div style="margin-left:28px; margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;">' + roleCbs + '</div>';
+                            } else if (cRoles.length === 1) {
+                                rolesHtml = '<div style="margin-left:28px; font-size:11px; color:var(--text-muted); margin-top:2px;">' + esc(cRoles[0]) + '</div>';
+                            }
+
+                            return '<div style="border:1px solid var(--border); border-radius:6px; background:var(--card); overflow:hidden;">' +
+                                '<label style="display:flex; align-items:center; gap:10px; padding:10px; cursor:pointer;">' +
+                                '<input type="checkbox" value="' + c.id + '" class="select-evt-contact-cb" ' + (isChecked ? 'checked' : '') + ' style="width:18px; height:18px;">' +
+                                '<div style="flex:1;"><b>' + esc(c.name) + '</b></div>' +
+                                '</label>' +
+                                rolesHtml +
+                                '</div>';
+                        }).join("");
+                    }
+                    document.getElementById("selectContactForEventModal").classList.add("active");
+                };
+
+                // Сохранение списка
+                window.saveEventParticipants = function () {
+                    var newParticipants = [];
+                    var checkboxes = document.querySelectorAll(".select-evt-contact-cb:checked");
+
+                    checkboxes.forEach(function (cb) {
+                        var contactId = cb.value;
+                        var contact = contacts.find(function (x) { return x.id === contactId; });
+                        if (!contact) return;
+
+                        var selectedRoles = [];
+
+                        // Собираем галочки ролей, которые пользователь выбрал вручную
+                        document.querySelectorAll('.evt-role-cb[data-contact-id="' + contactId + '"]:checked').forEach(function (roleCb) {
+                            selectedRoles.push(roleCb.value);
+                        });
+
+                        // Если у контакта 1 роль (или чекбоксы не рендерились), берем его роль по умолчанию
+                        if (selectedRoles.length === 0) {
+                            var cRoles = Array.isArray(contact.roles) ? contact.roles : (contact.role ? [contact.role] : []);
+                            selectedRoles = cRoles;
+                        }
+
+                        // Если вообще пусто (без ролей), ставим "Участник"
+                        if (selectedRoles.length === 0) selectedRoles = ["Участник"];
+
+                        newParticipants.push({ contactId: contact.id, roles: selectedRoles });
+                    });
+
+                    tempEventParticipants = newParticipants;
+                    renderEventParticipants(tempEventParticipants);
+                    document.getElementById("selectContactForEventModal").classList.remove("active");
+                };
+                // ============================================================
+
+                window.printEventWorksheet = function (evtId) {
+                    var evt = events.find(function (x) { return x.id === evtId; });
+                    if (!evt) return;
+
+                    var v = evt.venueId ? getVenue(evt.venueId) : null;
+                    var h = (v && evt.hallId) ? getVenueHall(v.id, evt.hallId) : null;
+
+                    // Тайминг
+                    var timesHtml = "";
+                    if (evt.timeSetup) timesHtml += '<li><b>Монтаж:</b> ' + esc(evt.timeSetup) + '</li>';
+                    if (evt.timeReady) timesHtml += '<li><b>Готовность:</b> ' + esc(evt.timeReady) + '</li>';
+                    if (evt.timeStart) timesHtml += '<li><b>Начало:</b> ' + esc(evt.timeStart) + '</li>';
+                    if (evt.timeEnd) timesHtml += '<li><b>Конец:</b> ' + esc(evt.timeEnd) + '</li>';
+                    if (evt.timeTeardown) timesHtml += '<li><b>Демонтаж:</b> ' + esc(evt.timeTeardown) + '</li>';
+
+                    // Место
+                    var placeHtml = "";
+                    if (v) {
+                        placeHtml = '<b>' + esc(v.name) + (v.singleHall ? "" : " → " + esc(h ? h.name : "")) + '</b><br>';
+                        if (v.address) placeHtml += '📍 ' + esc(v.address) + '<br>';
+                        if (h) {
+                            if (h.entryRules) placeHtml += '🔑 <b>Правила заезда:</b> ' + esc(h.entryRules) + '<br>';
+                            if (h.travelTime) placeHtml += '🚗 <b>Время в пути:</b> ' + formatTravelTime(h.travelTime) + '<br>';
+                            if (h.note) placeHtml += '📝 ' + esc(h.note) + '<br>';
+                        }
+                    }
+
+                    // Участники и их телефоны
+                    var contactsHtml = "";
+                    if (evt.participants && evt.participants.length > 0) {
+                        evt.participants.forEach(function (p) {
+                            var c = contacts.find(function (x) { return x.id === p.contactId; });
+                            if (c) {
+                                var rolesStr = Array.isArray(p.roles) ? p.roles.join(", ") : "";
+                                contactsHtml += '<li><b>' + esc(c.name) + '</b> (' + esc(rolesStr) + ') — ' + formatPhone(c.phone) + '</li>';
+                            }
+                        });
+                    }
+
+                    // Оборудование
+                    var eqHtml = "";
+                    var eqCounts = {};
+                    (evt.equipmentList || []).forEach(function (id) {
+                        var inst = getInstance(id);
+                        if (!inst) return;
+                        var m = getModel(inst.modelId);
+                        var name = m ? m.name : "Удалено";
+                        eqCounts[name] = (eqCounts[name] || 0) + 1;
+                    });
+                    for (var name in eqCounts) {
+                        eqHtml += '<li>' + esc(name) + ' — <b>' + eqCounts[name] + ' шт.</b></li>';
+                    }
+
+                    var hHtml = '<div style="font-family:Arial; padding:30px; color:#000;">';
+                    hHtml += '<h2 style="text-align:center; border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:20px;">РАБОЧИЙ ЛИСТ МОНТАЖНИКА</h2>';
+                    hHtml += '<h3 style="margin-bottom:5px;">🎪 ' + esc(evt.name) + '</h3>';
+                    hHtml += '<p style="font-size:14px; margin-bottom:15px;"><b>Даты:</b> ' + formatRuDateShort(evt.startDate) + ' — ' + formatRuDateShort(evt.endDate) + '</p>';
+
+                    hHtml += '<div style="display:flex; gap:30px; margin-bottom:20px;">';
+                    hHtml += '<div style="flex:1;"><h4 style="border-bottom:1px solid #ccc; padding-bottom:5px;">Место проведения</h4>' + (placeHtml || "Не указано") + '</div>';
+                    hHtml += '<div style="flex:1;"><h4 style="border-bottom:1px solid #ccc; padding-bottom:5px;">Тайминг</h4><ul style="padding-left:20px; margin:0; line-height:1.6;">' + (timesHtml || "Не указан") + '</ul></div>';
+                    hHtml += '</div>';
+
+                    hHtml += '<div style="margin-bottom:20px;"><h4 style="border-bottom:1px solid #ccc; padding-bottom:5px;">Контактные лица</h4><ul style="padding-left:20px; margin:0; line-height:1.6;">' + (contactsHtml || "Не указаны") + '</ul></div>';
+                    hHtml += '<div style="margin-bottom:30px;"><h4 style="border-bottom:1px solid #ccc; padding-bottom:5px;">Оборудование к погрузке</h4><ul style="padding-left:20px; margin:0; line-height:1.6; columns:2;">' + (eqHtml || "Пусто") + '</ul></div>';
+
+                    hHtml += '<div style="margin-top:50px; display:flex; justify-content:space-between; font-size:14px;">';
+                    hHtml += '<div>Собрал (Склад): _________________</div><div>Принял (Монтажник): _________________</div>';
+                    hHtml += '</div></div>';
+
+                    document.getElementById("printArea").innerHTML = hHtml;
+                    setTimeout(function () { window.print(); }, 100);
+                };
+
+                // ============================================================
+                // 📅 v7.2.0: КАЛЕНДАРЬ И ГАНТ
+                // ============================================================
+                var currentEventView = "list";
+                var currentCalDate = new Date();
+
+                document.querySelectorAll(".event-view-btn").forEach(function (btn) {
+                    btn.addEventListener("click", function () {
+                        currentEventView = this.dataset.view;
+                        document.querySelectorAll(".event-view-btn").forEach(function (b) { b.classList.remove("active"); });
+                        this.classList.add("active");
+
+                        document.getElementById("eventsList").style.display = (currentEventView === "list") ? "flex" : "none";
+                        document.getElementById("eventsCalendarView").style.display = (currentEventView === "calendar") ? "block" : "none";
+                        document.getElementById("eventsGanttView").style.display = (currentEventView === "gantt") ? "block" : "none";
+
+                        if (currentEventView === "calendar") renderCalendarView();
+                        if (currentEventView === "gantt") renderGanttView();
+                    });
+                });
+
+                window.renderCalendarView = function () {
+                    var container = document.getElementById("eventsCalendarView");
+                    var year = currentCalDate.getFullYear();
+                    var month = currentCalDate.getMonth();
+
+                    var firstDay = new Date(year, month, 1).getDay(); // 0 - Вс, 1 - Пн
+                    var daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                    // Корректируем для начала недели с понедельника
+                    var startOffset = (firstDay === 0) ? 6 : firstDay - 1;
+
+                    var mn = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+                    var daysOfWeek = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
+                    var html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">' +
+                        '<button type="button" class="ghost small" onclick="changeCalMonth(-1)">← Назад</button>' +
+                        '<h3 style="margin:0;">' + mn[month] + ' ' + year + '</h3>' +
+                        '<button type="button" class="ghost small" onclick="changeCalMonth(1)">Вперед →</button>' +
+                        '</div>';
+
+                    html += '<div class="calendar-grid">';
+                    daysOfWeek.forEach(function (d) { html += '<div class="cal-header">' + d + '</div>'; });
+
+                    // Пустые ячейки до начала месяца
+                    for (var i = 0; i < startOffset; i++) {
+                        html += '<div class="calendar-day other-month"></div>';
+                    }
+
+                    var todayStr = today();
+                    for (var day = 1; day <= daysInMonth; day++) {
+                        var dateStr = year + "-" + pad2(month + 1) + "-" + pad2(day);
+                        var isToday = (dateStr === todayStr) ? " today" : "";
+
+                        html += '<div class="calendar-day' + isToday + '">';
+                        html += '<div class="cal-date">' + day + '</div>';
+
+                        // Ищем мероприятия на этот день
+                        events.forEach(function (evt) {
+                            // Проверка попадания в диапазон
+                            if (dateStr >= evt.startDate && dateStr <= evt.endDate) {
+                                html += '<div class="cal-event" onclick="openEventEdit(\'' + evt.id + '\')" title="' + esc(evt.name) + '">' + esc(evt.name) + '</div>';
+                            }
+                        });
+                        html += '</div>';
+                    }
+
+                    // Добиваем пустые ячейки в конце
+                    var totalCells = startOffset + daysInMonth;
+                    var endOffset = 7 - (totalCells % 7);
+                    if (endOffset < 7) {
+                        for (var j = 0; j < endOffset; j++) {
+                            html += '<div class="calendar-day other-month"></div>';
+                        }
+                    }
+
+                    html += '</div>';
+                    container.innerHTML = html;
+                };
+
+                window.changeCalMonth = function (delta) {
+                    currentCalDate.setMonth(currentCalDate.getMonth() + delta);
+                    renderCalendarView();
+                };
+
+                window.renderGanttView = function () {
+                    var container = document.getElementById("eventsGanttView");
+                    if (!events.length) {
+                        container.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">Мероприятий нет.</div>';
+                        return;
+                    }
+
+                    // Берем период 30 дней (от сегодня)
+                    var now = new Date();
+                    var endDate = new Date();
+                    endDate.setDate(endDate.getDate() + 30);
+
+                    // Сортируем мероприятия по дате начала
+                    var sortedEvents = events.slice().sort(function (a, b) {
+                        return (a.startDate || "").localeCompare(b.startDate || "");
+                    });
+
+                    var daysList = [];
+                    var tempDate = new Date(now);
+                    for (var i = 0; i < 30; i++) {
+                        daysList.push(new Date(tempDate));
+                        tempDate.setDate(tempDate.getDate() + 1);
+                    }
+
+                    var html = '<div class="gantt-container">';
+
+                    // Шапка с датами
+                    html += '<div class="gantt-row" style="height: 30px;">';
+                    html += '<div class="gantt-side" style="background:var(--th-bg);">Мероприятие</div>';
+                    html += '<div class="gantt-timeline" style="background:var(--th-bg);">';
+                    daysList.forEach(function (d) {
+                        html += '<div class="gantt-col" title="' + dstr(d) + '">' + d.getDate() + '</div>';
+                    });
+                    html += '</div></div>';
+
+                    // Строки с мероприятиями
+                    sortedEvents.forEach(function (evt) {
+                        var evtStart = new Date(evt.startDate);
+                        var evtEnd = new Date(evt.endDate);
+
+                        // Проверяем, попадает ли мероприятие в наш 30-дневный диапазон
+                        if (evtEnd < now || evtStart > endDate) return;
+
+                        html += '<div class="gantt-row">';
+                        html += '<div class="gantt-side" title="' + esc(evt.name) + '">' + esc(evt.name) + '</div>';
+                        html += '<div class="gantt-timeline">';
+
+                        // Рисуем колонки дней
+                        daysList.forEach(function (d) {
+                            html += '<div class="gantt-col"></div>';
+                        });
+
+                        // Вычисляем позицию полосы
+                        var startOffsetDays = Math.floor((evtStart - now) / (1000 * 60 * 60 * 24));
+                        if (startOffsetDays < 0) startOffsetDays = 0; // Обрезаем, если началось раньше
+
+                        var endOffsetDays = Math.floor((evtEnd - now) / (1000 * 60 * 60 * 24));
+                        if (endOffsetDays > 30) endOffsetDays = 30; // Обрезаем, если кончается позже
+
+                        var duration = (endOffsetDays - startOffsetDays) + 1;
+                        if (duration > 0) {
+                            var leftPct = (startOffsetDays / 30) * 100;
+                            var widthPct = (duration / 30) * 100;
+
+                            html += '<div class="gantt-bar" style="left:' + leftPct + '%; width:' + widthPct + '%; background:var(--purple);" onclick="openEventEdit(\'' + evt.id + '\')">' + esc(evt.name) + '</div>';
+                        }
+
+                        html += '</div></div>';
+                    });
+
+                    html += '</div>';
+                    container.innerHTML = html;
+                };
+
+                // ============================================================
+                // 📦 v7.3.0: КОМПЛЕКТЫ
+                // ============================================================
+                window.renderKits = function () {
+                    var el = document.getElementById("kitsList");
+                    if (!el) return;
+                    if (!kits.length) {
+                        el.innerHTML = '<div style="color:var(--text-muted); padding:20px; text-align:center; grid-column:1/-1;">Комплектов пока нет. Нажмите «+ Новый комплект».</div>';
+                        return;
+                    }
+
+                    el.innerHTML = kits.map(function (k) {
+                        var modelsHtml = k.models.map(function (m) {
+                            var modelObj = getModel(m.modelId);
+                            var mName = modelObj ? modelObj.name : "[Удалено]";
+                            return '<div style="font-size:12px; display:flex; justify-content:space-between; border-bottom:1px dashed var(--border-light); padding:2px 0;">' +
+                                '<span>' + esc(mName) + '</span><b>' + m.qty + ' шт.</b></div>';
+                        }).join("");
+
+                        return '<div class="s-card" style="border-left-color:var(--green);">' +
+                            '<div class="s-name"><span>📦 ' + esc(k.name) + '</span></div>' +
+                            '<div style="margin-top:5px; margin-bottom:10px;">' + modelsHtml + '</div>' +
+                            '<div class="actions" style="justify-content:flex-end;">' +
+                            '<button type="button" class="edit small" onclick="openKitEdit(\'' + k.id + '\')">✎ Изменить</button>' +
+                            '<button type="button" class="danger small" onclick="deleteKit(\'' + k.id + '\')">✕</button>' +
+                            '</div></div>';
+                    }).join("");
+                };
+
+                window.openKitEdit = function (id) {
+                    editKitId = id;
+                    var k = id ? kits.find(function (x) { return x.id === id; }) : null;
+
+                    document.getElementById("kitModalTitle").textContent = k ? "Редактировать комплект" : "Новый комплект";
+                    document.getElementById("kitName").value = k ? k.name : "";
+                    document.getElementById("kitModelSearch").value = "";
+
+                    tempKitModels = k ? JSON.parse(JSON.stringify(k.models)) : [];
+
+                    renderKitModelsList();
+                    renderKitModelSearch();
+                    document.getElementById("kitModal").classList.add("active");
+                };
+
+                window.renderKitModelsList = function () {
+                    var el = document.getElementById("kitModelsList");
+                    if (!el) return;
+                    if (tempKitModels.length === 0) {
+                        el.innerHTML = '<div style="font-size:12px; color:var(--text-muted); text-align:center;">Добавьте приборы в комплект</div>';
+                        return;
+                    }
+                    el.innerHTML = tempKitModels.map(function (m, idx) {
+                        var model = getModel(m.modelId);
+                        return '<div style="display:flex; justify-content:space-between; align-items:center; background:var(--card); padding:5px 10px; border-radius:6px; border:1px solid var(--border);">' +
+                            '<span style="font-size:13px;">' + esc(model ? model.name : "[Удалено]") + '</span>' +
+                            '<div style="display:flex; gap:8px; align-items:center;">' +
+                            '<input type="number" value="' + m.qty + '" min="1" style="width:60px; padding:2px 5px;" onchange="updateKitModelQty(' + idx + ', this.value)">' +
+                            '<button type="button" class="danger small" onclick="removeKitModel(' + idx + ')" style="padding:2px 8px;">✕</button>' +
+                            '</div></div>';
+                    }).join("");
+                };
+
+                window.renderKitModelSearch = function () {
+                    var q = (document.getElementById("kitModelSearch").value || "").toLowerCase();
+                    var results = document.getElementById("kitModelSearchResults");
+                    if (!results) return;
+
+                    if (!q) {
+                        results.innerHTML = "";
+                        return;
+                    }
+
+                    var filtered = models.filter(function (m) { return m.name.toLowerCase().indexOf(q) !== -1; }).slice(0, 10);
+                    results.innerHTML = filtered.map(function (m) {
+                        return '<button type="button" class="ghost small" onclick="addModelToKit(\'' + m.id + '\')">+ ' + esc(m.name) + '</button>';
+                    }).join("");
+                };
+
+                window.addModelToKit = function (modelId) {
+                    var existing = tempKitModels.find(function (m) { return m.modelId === modelId; });
+                    if (existing) {
+                        existing.qty++;
+                    } else {
+                        tempKitModels.push({ modelId: modelId, qty: 1 });
+                    }
+                    document.getElementById("kitModelSearch").value = "";
+                    renderKitModelSearch();
+                    renderKitModelsList();
+                };
+
+                window.updateKitModelQty = function (idx, val) {
+                    tempKitModels[idx].qty = Math.max(1, parseInt(val) || 1);
+                };
+
+                window.removeKitModel = function (idx) {
+                    tempKitModels.splice(idx, 1);
+                    renderKitModelsList();
+                };
+
+                window.saveKit = function () {
+                    var name = document.getElementById("kitName").value.trim();
+                    if (!name) { alert("Введите название комплекта"); return; }
+                    if (tempKitModels.length === 0) { alert("Добавьте хотя бы один прибор"); return; }
+
+                    var obj = { name: name, models: tempKitModels };
+
+                    if (editKitId) {
+                        var idx = kits.findIndex(function (x) { return x.id === editKitId; });
+                        Object.assign(kits[idx], obj);
+                    } else {
+                        obj.id = "kit_" + genId();
+                        kits.push(obj);
+                    }
+                    saveToStorage();
+                    document.getElementById("kitModal").classList.remove("active");
+                    renderKits();
+                    if (typeof showScannerToast === "function") showScannerToast("✅ Комплект сохранен", true);
+                };
+
+                window.deleteKit = function (id) {
+                    if (!confirm("Удалить комплект?")) return;
+                    kits = kits.filter(function (x) { return x.id !== id; });
+                    saveToStorage();
+                    renderKits();
+                };
+
+
                 init();
             })();
         </script>
